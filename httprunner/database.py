@@ -44,7 +44,8 @@ class MysqlCli(object):
 
 
 # if __name__ == '__main__':
-#     mysql = Mysql(host="172.31.114.19", port=3306, user="root", password="root", database="blog")
-#     content = '''select * from blog_tag'''
-#     result = mysql.action(operate="select", content=content)
-#     print(result)
+#     mysql = MysqlCli(host="172.31.114.19", port=3306, user="root", password="root", database="blog")
+    # print(mysql.action())
+    # content = '''select * from blog_tag'''
+    # result = mysql.action(operate="select", content=content)
+    # print(result)

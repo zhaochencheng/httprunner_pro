@@ -49,7 +49,7 @@ class TestLoginByCCode(HttpRunner):
                 .with_jmespath("body.code", "code")
                 .validate()
                 .assert_equal('body.code', '000000'),
-            DBDeal().mysql().exec("select", "select * from username"),
+            DBDeal().mysql().exec("select", "select * from blog_tag;", "tags"),
         )
 
     ]

@@ -342,7 +342,18 @@ class HttpRunner(object):
         for step in self.__teststeps:
             logger.info(f"STEP:{step}")
             logger.info("执行数据初始化")
-
+            for database in step.databaseinit:
+                if database.mysql:
+                    for operate in database.mysql.operates:
+                        logger.info(f"operate:{operate}")
+                        for key, value in operate.items():
+                            if not value.get("assign"):
+                                assgin = database.mysql.instance.action(operate=key, content=value.get("content"))
+                            else:
+                                assgin = database.mysql.instance.action(operate=key, content=value.get("content"))
+                            logger.info(f"assgin:{assgin}")
+                # database.mysql
+            logger.info("执行数据初始化-完成")
             # override variables
             # step variables > extracted variables from previous steps
             step.variables = merge_variables(step.variables, extracted_variables)

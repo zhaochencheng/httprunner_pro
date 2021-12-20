@@ -342,8 +342,8 @@ class MysqlDeal(object):
         self.__step_database_init = step_database_init
         self.__step_database_init.mysql.instance = MysqlCli(host="172.31.114.19", port=3306, user="root", password="root", database="blog")
 
-    def exec(self, opearte: str, content: str, param=None) -> "MysqlDeal":
-        operate = {opearte: {"content": content, "param": param}}
+    def exec(self, opearte: str, content: str, assign=None) -> "MysqlDeal":
+        operate = {opearte: {"content": content, "assign": assign}}
         self.__step_database_init.mysql.operates.append(operate)
         return self
 
