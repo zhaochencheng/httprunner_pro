@@ -18,10 +18,12 @@ from httprunner.client import HttpSession
 from httprunner.exceptions import ValidationFailure, ParamsError
 from httprunner.ext.uploader import prepare_upload_step
 from httprunner.loader import load_project_meta, load_testcase_file
-from httprunner.parser import build_url, parse_data, parse_variables_mapping
+from httprunner.parser import build_url, parse_data, parse_variables_mapping, parse_mysql_format
 from httprunner.response import ResponseObject
 from httprunner.testcase import Config, Step
-from httprunner.utils import merge_variables
+from httprunner.utils import merge_variables, get_os_environ_by_prefix
+from httprunner.database import MysqlCli
+from httprunner.dbutil import extract, validate
 from httprunner.models import (
     TConfig,
     TStep,
@@ -32,8 +34,10 @@ from httprunner.models import (
     TestCaseInOut,
     ProjectMeta,
     TestCase,
-    Hooks,
+    Hooks, DataBase, MysqlConfig
 )
+
+ENV_MYSQL_PREFIX = "hrun_mysql_"
 
 
 class HttpRunner(object):
@@ -89,7 +93,7 @@ class HttpRunner(object):
         return self
 
     def __call_hooks(
-        self, hooks: Hooks, step_variables: VariablesMapping, hook_msg: Text,
+            self, hooks: Hooks, step_variables: VariablesMapping, hook_msg: Text,
     ) -> NoReturn:
         """ call hook actions.
 
@@ -142,9 +146,13 @@ class HttpRunner(object):
         prepare_upload_step(step, self.__project_meta.functions)
         request_dict = step.request.dict()
         request_dict.pop("upload", None)
+        # logger.info(f"request_dict: {request_dict}")
+        # logger.info(f"step.variables:{step.variables}")
+        # logger.info(f"__project_meta.functions:{self.__project_meta.functions}")
         parsed_request_dict = parse_data(
             request_dict, step.variables, self.__project_meta.functions
         )
+        # logger.info(f"parsed_request_dict: {parsed_request_dict}")
         parsed_request_dict["headers"].setdefault(
             "HRUN-Request-ID",
             f"HRUN-{self.__case_id}-{str(int(time.time() * 1000))[-6:]}",
@@ -244,11 +252,11 @@ class HttpRunner(object):
             testcase_cls = step.testcase
             case_result = (
                 testcase_cls()
-                .with_session(self.__session)
-                .with_case_id(self.__case_id)
-                .with_variables(step_variables)
-                .with_export(step_export)
-                .run()
+                    .with_session(self.__session)
+                    .with_case_id(self.__case_id)
+                    .with_variables(step_variables)
+                    .with_export(step_export)
+                    .run()
             )
 
         elif isinstance(step.testcase, Text):
@@ -261,11 +269,11 @@ class HttpRunner(object):
 
             case_result = (
                 HttpRunner()
-                .with_session(self.__session)
-                .with_case_id(self.__case_id)
-                .with_variables(step_variables)
-                .with_export(step_export)
-                .run_path(ref_testcase_path)
+                    .with_session(self.__session)
+                    .with_case_id(self.__case_id)
+                    .with_variables(step_variables)
+                    .with_export(step_export)
+                    .run_path(ref_testcase_path)
             )
 
         else:
@@ -315,6 +323,99 @@ class HttpRunner(object):
         config.base_url = parse_data(
             config.base_url, config.variables, self.__project_meta.functions
         )
+        # 对config中mysql进行解析
+        config.mysql = self.__parse_config_mysql(config.mysql, config)
+
+    def __parse_config_mysql(self, mysqlconfig: MysqlConfig, tconfig: TConfig) -> MysqlConfig:
+        mysqlconfig.host = parse_data(
+            mysqlconfig.host, tconfig.variables, self.__project_meta.functions
+        )
+        mysqlconfig.port = parse_data(
+            mysqlconfig.port, tconfig.variables, self.__project_meta.functions
+        )
+        mysqlconfig.user = parse_data(
+            mysqlconfig.user, tconfig.variables, self.__project_meta.functions
+        )
+        mysqlconfig.password = parse_data(
+            mysqlconfig.password, tconfig.variables, self.__project_meta.functions
+        )
+        mysqlconfig.database = parse_data(
+            mysqlconfig.database, tconfig.variables, self.__project_meta.functions
+        )
+        mysqlconfig.kwargs = parse_data(
+            mysqlconfig.kwargs, tconfig.variables, self.__project_meta.functions
+        )
+        return mysqlconfig
+
+    def __mysql_instance(self, tconfig: TConfig, mysqlconfig: MysqlConfig):
+        # get mysql config from Config.mysql() or DBDeal.mysql().
+        # and instantiation MysqlCli
+        def check_instance(config: MysqlConfig):
+            if config.host and config.port and config.database and config.user and config.password:
+                return True
+            return False
+
+        # priority: mysql.mysqlconfig > tconfig.mysql > .env.mysql
+        if check_instance(mysqlconfig):
+            logger.debug("mysql config using DBDeal.mysql")
+            mysqlconfig = self.__parse_config_mysql(mysqlconfig, tconfig)
+            return MysqlCli(host=mysqlconfig.host, port=int(mysqlconfig.port), user=mysqlconfig.user,
+                            password=mysqlconfig.password, database=mysqlconfig.database, **mysqlconfig.kwargs)
+        elif check_instance(tconfig.mysql):
+            logger.debug("mysql config using Config.mysql")
+            return MysqlCli(host=tconfig.mysql.host, port=int(tconfig.mysql.port), user=tconfig.mysql.user,
+                            password=tconfig.mysql.password, database=tconfig.mysql.database, **tconfig.mysql.kwargs)
+        else:
+            logger.debug("mysql config using .env file")
+            config_from_env = get_os_environ_by_prefix(ENV_MYSQL_PREFIX)
+            logger.debug(f"config_from_env: {config_from_env}")
+            env_config = MysqlConfig(**config_from_env)
+            for i in ["host", "port", "user", "password", "database"]:
+                config_from_env.pop(i, None)
+            # todo 从配置文件读入的配置 配置值为int 怎么传？ 通过ast.literal_eval()处理？
+            # env_config.kwargs = config_from_env
+            logger.debug(f"env_config:{env_config}")
+
+            if check_instance(env_config):
+                return MysqlCli(host=env_config.host, port=int(env_config.port), user=env_config.user,
+                                password=env_config.password, database=env_config.database, **env_config.kwargs)
+            else:
+                raise Exception(
+                    "** mysql is not confied **! please config into Config.mysql() or DBDeal.mysql() or .env file")
+
+    def __mysql_exec(self, config: DataBase) -> Dict:
+        # execute DBDeal.mysql.operate
+        __instancer = config.mysql.instance
+        __operateresult = {}
+        __extracts = config.extract
+        for operate in config.mysql.operate:
+            logger.debug(f"mysql operate:{operate}")
+            __variables_mapping = merge_variables(config.variables, self.__config.variables)
+            # TODO 校验alias
+            alias = operate.get("alias", None)
+            # TODO 解析content 执行定制的format方式进行sql赋值
+            parase_content = parse_mysql_format(operate.get("content"), __variables_mapping,
+                                                self.__project_meta.functions)
+            handle_result = __instancer.perform(action=operate.get("operate"), content=parase_content)
+            if alias:
+                __operateresult.update({alias: handle_result})
+        extract_mapping = extract(originaltext=__operateresult, extractors=__extracts)
+        extract_mapping.update(__operateresult)
+        return extract_mapping
+
+    def __db_deal(self, config: DataBase, db_extraced_variable: VariablesMapping) -> VariablesMapping:
+        config.variables = parse_variables_mapping(
+            config.variables, self.__project_meta.functions
+        )
+        if config.mysql:
+            # TODO 在这执行 mysqlcli的实例化 并写入结构体？
+            config.mysql.instance = self.__mysql_instance(self.__config, config.mysql.mysqlconfig)
+            mysql_extraced_variables = self.__mysql_exec(config=config)
+            if mysql_extraced_variables != {}:
+                db_extraced_variable.update(mysql_extraced_variables)
+        if config.mongo:
+            pass
+        return db_extraced_variable
 
     def run_testcase(self, testcase: TestCase) -> "HttpRunner":
         """run specified testcase
@@ -338,23 +439,23 @@ class HttpRunner(object):
         # save extracted variables of teststeps
         extracted_variables: VariablesMapping = {}
 
+        logger.info(f"self.__config:{self.__config}")
+
         # run teststeps
         for step in self.__teststeps:
             logger.info(f"STEP:{step}")
-            logger.info("执行数据初始化")
-            for database in step.databaseinit:
-                if database.mysql:
-                    for operate in database.mysql.operates:
-                        logger.info(f"operate:{operate}")
-                        for key, value in operate.items():
-                            if not value.get("assign"):
-                                assgin = database.mysql.instance.action(operate=key, content=value.get("content"))
-                            else:
-                                assgin = database.mysql.instance.action(operate=key, content=value.get("content"))
-                            logger.info(f"assgin:{assgin}")
-                # database.mysql
-            logger.info("执行数据初始化-完成")
+            db_extraced_variables = {}
+            logger.info("***** Run DBDeal *****")
+            for database in step.databases:
+                db_extraced_variables = self.__db_deal(database, db_extraced_variables)
+                logger.debug(f"database.extract:{db_extraced_variables}")
+                # save db extract variables to session variables
+                extracted_variables.update(db_extraced_variables)
+
+            logger.info("***** DBDeal End *****")
             # override variables
+            # step variables >  extracted variables from database
+            step.variables = merge_variables(step.variables, db_extraced_variables)
             # step variables > extracted variables from previous steps
             step.variables = merge_variables(step.variables, extracted_variables)
             # step variables > testcase config variables
@@ -364,7 +465,7 @@ class HttpRunner(object):
             step.variables = parse_variables_mapping(
                 step.variables, self.__project_meta.functions
             )
-
+            logger.info(f"step.variables:{step.variables}")
             # run step
             if USE_ALLURE:
                 with allure.step(f"step: {step.name}"):
@@ -374,6 +475,30 @@ class HttpRunner(object):
 
             # save extracted variables to session variables
             extracted_variables.update(extract_mapping)
+            # logger.info(f"extracted_variables:{extracted_variables}")
+
+            # todo 下面是数据库校验逻辑
+            logger.info("***** Run DBValidate *****")
+            validate_extraced_variables = {}
+            for dbvalidator in step.databasevalidators:
+                validate_extraced_variables = self.__db_deal(dbvalidator.database, validate_extraced_variables)
+                logger.debug(f"database.extract:{validate_extraced_variables}")
+                # save db extract variables to session variables
+                extracted_variables.update(validate_extraced_variables)
+                logger.debug(f"extracted_variables: {extracted_variables}")
+                # for v in dbvalidator.validators:
+                logger.info(f"dbvalidator.validators:{dbvalidator.validators}")
+                session_success = False
+                try:
+                    validate(dbvalidator.validators, extracted_variables, self.__project_meta.functions)
+                    session_success = True
+                except ValidationFailure:
+                    session_success = False
+                    raise
+                finally:
+                    self.success = session_success
+
+            logger.info("***** DBValidate End *****")
 
         self.__session_variables.update(extracted_variables)
         self.__duration = time.time() - self.__start_at
@@ -455,6 +580,7 @@ class HttpRunner(object):
         self.__config.name = parse_data(
             self.__config.name, config_variables, self.__project_meta.functions
         )
+        logger.info(f"config_variables: {config_variables}")
 
         if USE_ALLURE:
             # update allure report meta

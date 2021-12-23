@@ -5,7 +5,7 @@ __description__ = "One-stop solution for HTTP(S) testing."
 from httprunner.ext.locust import main_locusts
 from httprunner.parser import parse_parameters as Parameters
 from httprunner.runner import HttpRunner
-from httprunner.testcase import Config, Step, RunRequest, RunTestCase, DBDeal
+from httprunner.testcase import Config, Step, RunRequest, RunTestCase, DBDeal, DBValidate
 
 __all__ = [
     "__version__",
@@ -16,5 +16,7 @@ __all__ = [
     "RunRequest",
     "RunTestCase",
     "Parameters",
-    "DBDeal"
+
+    "DBDeal",
+    "DBValidate"
 ]

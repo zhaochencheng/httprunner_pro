@@ -1,19 +1,19 @@
 import collections
 import copy
+import itertools
 import json
 import os.path
 import platform
 import uuid
 from multiprocessing import Queue
-import itertools
-from typing import Dict, List, Any, Union, Text
+from typing import Dict, List, Any, Text
 
 import sentry_sdk
 from loguru import logger
 
 from httprunner import __version__
 from httprunner import exceptions
-from httprunner.models import VariablesMapping
+VariablesMapping = Dict[Text, Any]
 
 
 def init_sentry_sdk():
@@ -58,6 +58,14 @@ def get_os_environ(variable_name):
         return os.environ[variable_name]
     except KeyError:
         raise exceptions.EnvNotFound(variable_name)
+
+
+def get_os_environ_by_prefix(prefix):
+    prefix_dict = {}
+    for key, value in os.environ.items():
+        if key.lower().startswith(prefix):
+            prefix_dict.update({key.lower().replace(prefix, ""): value})
+    return prefix_dict
 
 
 def lower_dict_keys(origin_dict):
@@ -194,7 +202,7 @@ class ExtendJSONEncoder(json.JSONEncoder):
 
 
 def merge_variables(
-    variables: VariablesMapping, variables_to_be_overridden: VariablesMapping
+        variables: VariablesMapping, variables_to_be_overridden: VariablesMapping
 ) -> VariablesMapping:
     """ merge two variables mapping, the first variables have higher priority
     """

@@ -1,67 +1,59 @@
 
-# HttpRunner
+# HttpRunner_Pro
 
-[![downloads](https://pepy.tech/badge/httprunner)](https://pepy.tech/project/httprunner)
-[![unittest](https://github.com/httprunner/httprunner/workflows/unittest/badge.svg
-)](https://github.com/httprunner/httprunner/actions)
-[![integration-test](https://github.com/httprunner/httprunner/workflows/integration_test/badge.svg
-)](https://github.com/httprunner/httprunner/actions)
-[![codecov](https://codecov.io/gh/httprunner/httprunner/branch/master/graph/badge.svg)](https://codecov.io/gh/httprunner/httprunner)
-[![pypi version](https://img.shields.io/pypi/v/httprunner.svg)](https://pypi.python.org/pypi/httprunner)
-[![pyversions](https://img.shields.io/pypi/pyversions/httprunner.svg)](https://pypi.python.org/pypi/httprunner)
-[![TesterHome](https://img.shields.io/badge/TTF-TesterHome-2955C5.svg)](https://testerhome.com/github_statistics)
+本项目是基于HttpRunner进行了**功能扩展改造**，在原有功能上添加了接口测试时的数据库操作，如：数据库初始化、数据库数据校验等步骤。
 
-*HttpRunner* is a simple & elegant, yet powerful HTTP(S) testing framework. Enjoy! ✨ 🚀 ✨
+HttpRunner Github:[HttpRunner](https://github.com/httprunner/httprunner)
 
-## Design Philosophy
+### 框架特点
+* 扩展功能是可插拔式。在不使用扩展功能时，该框架与原有框架行为保持一致。
+* 扩展功能使用语法，兼顾或复用原有框架的写法
 
-- Convention over configuration
-- ROI matters
-- Embrace open source, leverage [`requests`][requests], [`pytest`][pytest], [`pydantic`][pydantic], [`allure`][allure] and [`locust`][locust].
+## 写在前面（闲谈）(可跳过)
+### 1.改造背景与目的
 
-## Key Features
 
-- Inherit all powerful features of [`requests`][requests], just have fun to handle HTTP(S) in human way.
-- Define testcase in YAML or JSON format, run with [`pytest`][pytest] in concise and elegant manner. 
-- Record and generate testcases with [`HAR`][HAR] support.
-- Supports `variables`/`extract`/`validate`/`hooks` mechanisms to create extremely complex test scenarios.
-- With `debugtalk.py` plugin, any function can be used in any part of your testcase.
-- With [`jmespath`][jmespath], extract and validate json response has never been easier.
-- With [`pytest`][pytest], hundreds of plugins are readily available. 
-- With [`allure`][allure], test report can be pretty nice and powerful.
-- With reuse of [`locust`][locust], you can run performance test without extra work.
-- CLI command supported, perfect combination with `CI/CD`.
+### 书写demo
 
-## Sponsors
+```python
+from httprunner import HttpRunner, Config, Step, RunRequest, DBDeal, RunTestCase
 
-Thank you to all our sponsors! ✨🍰✨ ([become a sponsor](docs/sponsors.md))
 
-### 金牌赞助商（Gold Sponsor）
+class TestLoginByCCode(HttpRunner):
+    config = (
+        Config("demo")
+            .base_url("${get_mock_url()}")
+            .variables(
+            **{"address": "hefei", "mockurl": "${get_mock_url()}", "sql": "select * from table where name = 'bob'", "mysql_env": "${ENV(mysql_host)}","connect_timeout": 20}
+        ).verify(True)
+            .export("name", "tag2_name","tag4_name")
+            .mysql()
+    )
+    teststeps = [
+        Step(
+            DBDeal()
+                .mysql(**{"host": "${get_loginid($mysql_env)}", "port": "3306", "user": "root", "password": "root", "database": "blog", "connect_timeout": "$connect_timeout"})
+                .with_variables(**{"name": "name", "state": 1, "create": "${get_loginid(created_by)}"})
+                .exec("select", '''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',
+                      "tags")
+                .extract()
+                .with_jmespath("tags.list1[0].name", "tag_name")
+                .with_jmespath("tags", "tag2_name")
+            ,
+            RunRequest("下发短信验证码")
+                .with_variables(**{"url": "${get_loginid($address)}"})
+                .get("/v1/tags")
+                .with_json("(${get_mock_url()},2)")
+                .extract()
+                .with_jmespath("body.code", "code")
+                .with_jmespath('body.data.lists[1].name', "name")
+                .validate()
+                .assert_equal('body.code', '000000')
+            ,
+        )
 
-[<img src="docs/assets/hogwarts.png" alt="霍格沃兹测试学院" width="400">](https://ceshiren.com/)
+    ]
+```
 
-> [霍格沃兹测试学院](https://ceshiren.com/) 是业界领先的测试开发技术高端教育品牌，隶属于测吧（北京）科技有限公司。学院课程均由 BAT 一线测试大咖执教，提供实战驱动的接口自动化测试、移动自动化测试、性能测试、持续集成与 DevOps 等技术培训，以及测试开发优秀人才内推服务。[点击学习!](https://ke.qq.com/course/254956?flowToken=1014690)
-
-霍格沃兹测试学院是 HttpRunner 的首家金牌赞助商。
-
-### 开源服务赞助商（Open Source Sponsor）
-
-[<img src="docs/assets/sentry-logo-black.svg" alt="Sentry" width="150">](https://sentry.io/_/open-source/)
-
-HttpRunner is in Sentry Sponsored plan.
-
-## Subscribe
-
-关注 HttpRunner 的微信公众号，第一时间获得最新资讯。
-
-![](docs/assets/qrcode.jpg)
-
-[requests]: http://docs.python-requests.org/en/master/
-[pytest]: https://docs.pytest.org/
-[pydantic]: https://pydantic-docs.helpmanual.io/
-[locust]: http://locust.io/
-[jmespath]: https://jmespath.org/
-[allure]: https://docs.qameta.io/allure/
-[HAR]: http://httparchive.org/
 
 

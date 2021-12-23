@@ -1,11 +1,3 @@
-'''
--*- coding: utf-8 -*-
-@Author  : cczhao2
-@mail    : 907779487@qq.com
-@Time    : 2021/12/19 16:03
-@Software: PyCharm
-@File    : database.py
-'''
 import pymysql
 from pymongo import MongoClient
 
@@ -36,16 +28,15 @@ class MysqlCli(object):
             with self._connection.cursor() as cursor:
                 cursor.execute(content)
                 result = cursor.fetchall()
-                return result
+                return {"list1": result}
 
-    def action(self, operate, content):
-        if operate == "select":
+    def perform(self, action, content):
+        if action == "select":
             return self.__select(content=content)
 
-
+#
 # if __name__ == '__main__':
 #     mysql = MysqlCli(host="172.31.114.19", port=3306, user="root", password="root", database="blog")
-    # print(mysql.action())
-    # content = '''select * from blog_tag'''
-    # result = mysql.action(operate="select", content=content)
-    # print(result)
+#     content = '''select * from blog_tag'''
+#     result = mysql.perform(action="select", content=content)
+#     print(result)

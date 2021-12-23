@@ -1,7 +1,6 @@
 import inspect
 from typing import Text, Any, Union, Callable
 
-from httprunner.database import MysqlCli
 from httprunner.models import (
     TConfig,
     TStep,
@@ -9,7 +8,18 @@ from httprunner.models import (
     MethodEnum,
     TestCase,
     DataBase,
-    Mysql,
+    MysqlConfig, DataBaseValidate,
+)
+from httprunner.testcasedb import (
+    DBDeal,
+    MysqlDeal,
+    MongoDeal,
+    DataBaseExtraction,
+    DBValidate,
+    MysqlValidate,
+    ValidateExtraction,
+    DataBaseValidation
+
 )
 
 
@@ -21,6 +31,7 @@ class Config(object):
         self.__verify = False
         self.__export = []
         self.__weight = 1
+        self.__mysql = MysqlConfig()
 
         caller_frame = inspect.stack()[1]
         self.__path = caller_frame.filename
@@ -57,6 +68,17 @@ class Config(object):
         self.__weight = weight
         return self
 
+    def mysql(self, host: Text = None, port: Text = None, user: Text = None, password: Text = None,
+              database: Text = None,
+              **kwargs) -> "Config":
+        self.__mysql.host = host
+        self.__mysql.port = port
+        self.__mysql.user = user
+        self.__mysql.password = password
+        self.__mysql.database = database
+        self.__mysql.kwargs = kwargs
+        return self
+
     def perform(self) -> TConfig:
         return TConfig(
             name=self.__name,
@@ -66,6 +88,7 @@ class Config(object):
             export=list(set(self.__export)),
             path=self.__path,
             weight=self.__weight,
+            mysql=self.__mysql,
         )
 
 
@@ -304,53 +327,6 @@ class RequestWithOptionalArgs(object):
         return self.__step_context
 
 
-class DBDeal(object):
-    def __init__(self):
-        host = "172.31.114.19"
-        port = 3306
-        user = "root"
-        password = "root"
-        database = "blog"
-        self.__step_database_init = DataBase()
-        self.__mysql = Mysql()
-        self.__step_database_init.mysql = self.__mysql
-
-    def with_variables(self, **variables) -> "DBDeal":
-        self.__step_database_init.variables.update(variables)
-        return self
-
-    def mongo(self) -> "MongoDeal":
-        return MongoDeal(self.__step_database_init)
-
-    def mysql(self) -> "MysqlDeal":
-        return MysqlDeal(self.__step_database_init)
-
-    def perform(self) -> "DataBase":
-        return self.__step_database_init
-
-
-class MongoDeal(object):
-    def __init__(self, step_database_init: "DataBase"):
-        self.__step_database_init = step_database_init
-
-    def perform(self) -> "DataBase":
-        return self.__step_database_init
-
-
-class MysqlDeal(object):
-    def __init__(self, step_database_init: "DataBase"):
-        self.__step_database_init = step_database_init
-        self.__step_database_init.mysql.instance = MysqlCli(host="172.31.114.19", port=3306, user="root", password="root", database="blog")
-
-    def exec(self, opearte: str, content: str, assign=None) -> "MysqlDeal":
-        operate = {opearte: {"content": content, "assign": assign}}
-        self.__step_database_init.mysql.operates.append(operate)
-        return self
-
-    def perform(self) -> "DataBase":
-        return self.__step_database_init
-
-
 class RunRequest(object):
     def __init__(self, name: Text):
         self.__step_context = TStep(name=name)
@@ -443,23 +419,33 @@ class RunTestCase(object):
 class Step(object):
     def __init__(
             self,
-            # step_database_init: Union[
-            #     DBDeal,
-            #     MysqlDeal,
-            #     MongoDeal,
-            # ],
-            step_context: Union[
+            *args: Union[
                 StepRequestValidation,
                 StepRequestExtraction,
                 RequestWithOptionalArgs,
                 RunTestCase,
                 StepRefCase,
+
+                DBDeal,
+                MysqlDeal,
+                MongoDeal,
+                DataBaseExtraction,
+
+                DBValidate,
+                MysqlValidate,
+                ValidateExtraction,
+                DataBaseValidation
             ],
-            *args,
     ):
-        # self.__step_database_init = step_database_init.perform()
-        self.__step_context = step_context.perform()
-        self.__step_database_init_list = [dbint.perform() for dbint in args]
+        self.__step_database_list = []
+        self.__step_databasevalidate_list = []
+        for arg in args:
+            if isinstance(arg.perform(), (TStep,)):
+                self.__step_context = arg.perform()
+            if isinstance(arg.perform(), (DataBase,)):
+                self.__step_database_list.append(arg.perform())
+            if isinstance(arg.perform(), (DataBaseValidate,)):
+                self.__step_databasevalidate_list.append(arg.perform())
 
     @property
     def request(self) -> TRequest:
@@ -470,5 +456,6 @@ class Step(object):
         return self.__step_context.testcase
 
     def perform(self) -> TStep:
-        self.__step_context.databaseinit = self.__step_database_init_list
+        self.__step_context.databases = self.__step_database_list
+        self.__step_context.databasevalidators = self.__step_databasevalidate_list
         return self.__step_context

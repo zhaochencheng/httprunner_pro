@@ -31,6 +31,15 @@ class MethodEnum(Text, Enum):
     PATCH = "PATCH"
 
 
+class MysqlConfig(BaseModel):
+    host: Union[Text, None]
+    port: Union[Text, None]
+    user: Union[Text, None]
+    password: Union[Text, None]
+    database: Union[Text, None]
+    kwargs: Union[Dict[Text, Any], None] = {}
+
+
 class TConfig(BaseModel):
     name: Name
     verify: Verify = False
@@ -43,6 +52,7 @@ class TConfig(BaseModel):
     export: Export = []
     path: Text = None
     weight: int = 1
+    mysql: Union[MysqlConfig, None] = None
 
 
 class Mongo(BaseModel):
@@ -51,19 +61,25 @@ class Mongo(BaseModel):
 
 
 class Mysql(BaseModel):
-    host: Union[Text, None]
-    port: Union[Text, None]
-    user: Union[Text, None]
-    password: Union[Text, None]
-    database: Union[Text, None]
+    mysqlconfig: Union[MysqlConfig, None] = None
     instance: Union[Callable, None] = []
-    operates: List[Dict[Text, Any]] = []
+    operate: List[Dict[Text, Any]] = []
 
 
 class DataBase(BaseModel):
     variables: VariablesMapping = {}
     mysql: Union[Mysql, None] = None
     mongo: Union[Mongo, None] = None
+    operatingresults: Dict[Text, Any] = {}
+    extract: VariablesMapping = {}
+
+
+class DataBaseValidate(BaseModel):
+    validators: Validators = Field([], alias="validate")
+    validate_script: List[Text] = []
+    database: DataBase
+    # mysql: Union[Mysql, None] = None
+    # mongo: Union[Mongo, None] = None
 
 
 class TRequest(BaseModel):
@@ -95,8 +111,8 @@ class TStep(BaseModel):
     export: Export = []
     validators: Validators = Field([], alias="validate")
     validate_script: List[Text] = []
-    databaseinit: List[DataBase] = []
-    # databasevalidators:Validators = Field([], alias="validate")
+    databases: List[DataBase] = []
+    databasevalidators: List[DataBaseValidate] = []
 
 
 class TestCase(BaseModel):

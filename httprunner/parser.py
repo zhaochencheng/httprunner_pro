@@ -1,8 +1,8 @@
 import ast
 import builtins
-import re
 import os
-from typing import Any, Set, Text, Callable, List, Dict, Union
+import re
+from typing import Any, Set, Text, Callable, List, Dict
 
 from loguru import logger
 from sentry_sdk import capture_exception
@@ -18,6 +18,8 @@ dolloar_regex_compile = re.compile(r"\$\$")
 variable_regex_compile = re.compile(r"\$\{(\w+)\}|\$(\w+)")
 # function notation, e.g. ${func1($var_1, $var_3)}
 function_regex_compile = re.compile(r"\$\{(\w+)\(([\$\w\.\-/\s=,]*)\)\}")
+# SQL sentence, e.g. (select {},{},{} from blog_tag;).format("name", "state", "created_by")
+mysql_regex_compile = re.compile(r"^\(.*\).format\(.*\)")
 
 
 def parse_string_value(str_value: Text) -> Any:
@@ -209,7 +211,7 @@ def parse_function_params(params: Text) -> Dict:
 
 
 def get_mapping_variable(
-    variable_name: Text, variables_mapping: VariablesMapping
+        variable_name: Text, variables_mapping: VariablesMapping
 ) -> Any:
     """ get variable from variables_mapping.
 
@@ -234,7 +236,7 @@ def get_mapping_variable(
 
 
 def get_mapping_function(
-    function_name: Text, functions_mapping: FunctionsMapping
+        function_name: Text, functions_mapping: FunctionsMapping
 ) -> Callable:
     """ get function from functions_mapping,
         if not found, then try to check if builtin function.
@@ -426,7 +428,6 @@ def parse_data(
 def parse_variables_mapping(
     variables_mapping: VariablesMapping, functions_mapping: FunctionsMapping = None
 ) -> VariablesMapping:
-
     parsed_variables: VariablesMapping = {}
 
     while len(parsed_variables) != len(variables_mapping):
@@ -571,3 +572,110 @@ def parse_parameters(parameters: Dict,) -> List[Dict]:
         parsed_parameters_list.append(parameter_content_list)
 
     return utils.gen_cartesian_product(*parsed_parameters_list)
+
+
+def split_param(raw_string: Text) -> Any:
+    """ split param by regex to list
+
+    Args:
+        raw_string: raw string content to be split.
+    Returns:
+        list: splited string content.
+
+    Examples:
+        >>> raw_string = "abc${add_one($num)}def"
+        >>> split_param(raw_string)
+            ['${add_one($num)}']
+
+    """
+    # TODO 这个逻辑要改下，应该是 '$num, abc${add_one($num, $name)}def'， 出来是这个 ["$num", "abc${add_one($num, $name)}def"]
+    splited_param_list = []
+    try:
+        match_start_position = raw_string.index("$", 0)
+        parsed_string = raw_string[0:match_start_position]
+    except ValueError:
+        parsed_string = raw_string
+        splited_param_list.append(parsed_string)
+        return splited_param_list
+
+    while match_start_position < len(raw_string):
+
+        # Notice: notation priority
+        # $$ > ${func($a, $b)} > $var
+
+        # search $$
+        dollar_match = dolloar_regex_compile.match(raw_string, match_start_position)
+        if dollar_match:
+            match_start_position = dollar_match.end()
+            parsed_string += "$"
+            continue
+
+        # search function like ${func($a, $b)}
+        func_match = function_regex_compile.match(raw_string, match_start_position)
+        if func_match:
+            func_name = func_match.group(1)
+            func_params_str = func_match.group(2)
+            func_param = raw_string[func_match.span()[0]:func_match.span()[1]]
+            splited_param_list.append(func_param)
+
+            func_raw_str = "${" + func_name + f"({func_params_str})" + "}"
+            if func_raw_str == raw_string:
+                # raw_string is a function, e.g. "${add_one(3)}", return its eval value directly
+                return splited_param_list
+
+            # raw_string contains one or many functions, e.g. "abc${add_one(3)}def"
+            parsed_string += str(func_param)
+            match_start_position = func_match.end()
+            continue
+
+        # search variable like ${var} or $var
+        var_match = variable_regex_compile.match(raw_string, match_start_position)
+        if var_match:
+            var_name = var_match.group(1) or var_match.group(2)
+            var_param = raw_string[var_match.span()[0]: var_match.span()[1]]
+            splited_param_list.append(var_param)
+
+            if f"${var_name}" == raw_string or "${" + var_name + "}" == raw_string:
+                # raw_string is a variable, $var or ${var}, return its value directly
+                return splited_param_list
+
+            # raw_string contains one or many variables, e.g. "abc${var}def"
+            parsed_string += str(var_param)
+            match_start_position = var_match.end()
+            continue
+
+        curr_position = match_start_position
+        try:
+            # find next $ location
+            match_start_position = raw_string.index("$", curr_position + 1)
+            remain_string = raw_string[curr_position:match_start_position]
+        except ValueError:
+            remain_string = raw_string[curr_position:]
+            # break while loop
+            match_start_position = len(raw_string)
+
+        parsed_string += remain_string
+
+    return splited_param_list
+
+
+def parse_mysql_format(content: Text,
+                        variables_mapping: VariablesMapping,
+                        functions_mapping: FunctionsMapping, ) -> Any:
+
+    mysql_match = mysql_regex_compile.match(content)
+    if mysql_match is None:
+        return content
+    mysql_match_string_split = mysql_match.string.split(".format")
+    logger.info(f"mysql_match_string_split: {mysql_match_string_split}")
+    raw_string = mysql_match_string_split[1][1:-1]
+
+    parsed_sql_list = []
+    splited_sql_list = split_param(raw_string)
+    for sql in splited_sql_list:
+        parsed_sql = parse_string(sql, variables_mapping, functions_mapping)
+        parsed_sql_list.append(parsed_sql)
+    logger.info(f"parsed_sql_list:{parsed_sql_list}")
+    parsed_sql_format = mysql_match_string_split[0][1:-1].format(*parsed_sql_list)
+    logger.info(f"parsed_sql_format: {parsed_sql_format}")
+    return parsed_sql_format
