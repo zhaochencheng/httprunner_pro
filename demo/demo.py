@@ -1,11 +1,4 @@
-'''
--*- coding: utf-8 -*-
-@Author  : cczhao2
-@mail    : 907779487@qq.com
-@Time    : 2021/12/17 20:52
-@Software: PyCharm
-@File    : demo.py
-'''
+
 from httprunner import HttpRunner, Config, Step, RunRequest, DBDeal, RunTestCase, DBValidate
 
 

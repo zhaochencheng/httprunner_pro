@@ -1,11 +1,4 @@
-'''
--*- coding: utf-8 -*-
-@Author  : cczhao2
-@mail    : 907779487@qq.com
-@Time    : 2021/12/19 14:49
-@Software: PyCharm
-@File    : debugtalk.py
-'''
+
 
 
 def get_mock_url():
@@ -17,7 +10,7 @@ def Sqlselect(table, name, namevalue):
 
 
 def get_testcase_phone():
-    return "18856361920"
+    return "18811111111"
 
 
 def get_loginid(name):
