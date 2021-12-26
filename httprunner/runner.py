@@ -348,7 +348,7 @@ class HttpRunner(object):
         return mysqlconfig
 
     def __mysql_instance(self, tconfig: TConfig, mysqlconfig: MysqlConfig):
-        # get mysql config from Config.mysql() or DBDeal.mysql().
+        # get mysql config from Config.mysql() or DBDeal.mysql() or .env file.
         # and instantiation MysqlCli
         def check_instance(config: MysqlConfig):
             if config.host and config.port and config.database and config.user and config.password:
@@ -381,7 +381,7 @@ class HttpRunner(object):
                                 password=env_config.password, database=env_config.database, **env_config.kwargs)
             else:
                 raise Exception(
-                    "** mysql is not confied **! please config into Config.mysql() or DBDeal.mysql() or .env file")
+                    "** mysql is not confied! please config into Config.mysql() or DBDeal.mysql() or .env file **")
 
     def __mysql_exec(self, config: DataBase) -> Dict:
         # execute DBDeal.mysql.operate
@@ -392,7 +392,7 @@ class HttpRunner(object):
             logger.debug(f"mysql operate:{operate}")
             __variables_mapping = merge_variables(config.variables, self.__config.variables)
             # TODO 校验alias
-            alias = operate.get("alias", None)
+            alias = operate.get("alias", "").strip()
             # TODO 解析content 执行定制的format方式进行sql赋值
             parase_content = parse_mysql_format(operate.get("content"), __variables_mapping,
                                                 self.__project_meta.functions)

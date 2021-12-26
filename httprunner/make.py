@@ -49,7 +49,7 @@ import pytest
 from httprunner import Parameters
 {% endif %}
 
-from httprunner import HttpRunner, Config, Step, RunRequest, RunTestCase
+from httprunner import HttpRunner, Config, Step, RunRequest, RunTestCase, DBDeal, DBValidate
 {% for import_str in imports_list %}
 {{ import_str }}
 {% endfor %}
@@ -80,10 +80,10 @@ if __name__ == "__main__":
 def __ensure_absolute(path: Text) -> Text:
     if path.startswith("./"):
         # Linux/Darwin, hrun ./test.yml
-        path = path[len("./") :]
+        path = path[len("./"):]
     elif path.startswith(".\\"):
         # Windows, hrun .\\test.yml
-        path = path[len(".\\") :]
+        path = path[len(".\\"):]
 
     path = ensure_path_sep(path)
     project_meta = load_project_meta(path)
@@ -208,6 +208,9 @@ def make_config_chain_style(config: Dict) -> Text:
 
     if "weight" in config:
         config_chain_style += f'.locust_weight({config["weight"]})'
+    # add mysql config
+    if "mysql" in config:
+        config_chain_style += f'.mysql(**{config["mysql"]})'
 
     return config_chain_style
 
@@ -260,11 +263,106 @@ def make_request_chain_style(request: Dict) -> Text:
     return request_chain_style
 
 
+def make_dbdeal_mysql_chain_style(mapping: Dict) -> Text:
+    mysql_info = ""
+    if "conf" in mapping:
+        conf = mapping.get("conf")
+        if conf == {}:
+            mysql_info += "mysql()"
+        else:
+            mysql_info += f"mysql(**{conf})"
+    else:
+        mysql_info += "mysql()"
+    if "variables" in mapping:
+        variables = mapping.get("variables")
+        mysql_info += f".with_variables(**{variables})"
+
+    if "exec" in mapping:
+        exec = mapping.get("exec")
+        action = ""
+        sql = ""
+        alias = ""
+        if "action" in exec:
+            action = exec.get("action")
+        if "sql" in exec:
+            sql = exec.get("sql")
+        if "alias" in exec:
+            alias = exec.get("alias")
+        mysql_info += f""".exec('{action}', '{sql}', '{alias}')"""
+    if "extract" in mapping:
+        mysql_info += ".extract()"
+        for extract_name, extract_path in mapping.get("extract").items():
+            mysql_info += f""".with_jmespath('{extract_path}', '{extract_name}')"""
+
+    return mysql_info
+
+
+def make_dbdeal_chain_style(dbdeal_list: List) -> Text:
+    info = ""
+    for dbdeal in dbdeal_list:
+        dbdeal_info = "DBDeal()."
+        mysql_info = dbdeal.get("mysql", None)
+        if mysql_info:
+            mysql_info_str = make_dbdeal_mysql_chain_style(mysql_info)
+            dbdeal_info += mysql_info_str
+            info += dbdeal_info + ","
+
+    return info
+
+
+def make_dbValidate_mysql_chain_style(mapping: Dict) -> Text:
+    mysql_validate_info = ""
+    mysql_deal = make_dbdeal_mysql_chain_style(mapping)
+    mysql_validate_info += mysql_deal
+    if "validate" in mapping:
+        mysql_validate_info += ".validate()"
+        for v in mapping["validate"]:
+            validator = uniform_validator(v)
+            assert_method = validator["assert"]
+            check = validator["check"]
+            if '"' in check:
+                # e.g. body."user-agent" => 'body."user-agent"'
+                check = f"'{check}'"
+            else:
+                check = f'"{check}"'
+            expect = validator["expect"]
+            if isinstance(expect, Text):
+                expect = f'"{expect}"'
+
+            message = validator["message"]
+            if message:
+                mysql_validate_info += f".assert_{assert_method}({check}, {expect}, '{message}')"
+            else:
+                mysql_validate_info += f".assert_{assert_method}({check}, {expect})"
+    return mysql_validate_info
+
+
+def make_dbValidate_chain_style(dbvalidate_list: List) -> Text:
+    info = ""
+    for dbvalidate in dbvalidate_list:
+        dbvalidate_info = "DBValidate()."
+        mysql_info = dbvalidate.get("mysql", None)
+        if mysql_info:
+            mysql_info_str = make_dbValidate_mysql_chain_style(mysql_info)
+            dbvalidate_info += mysql_info_str
+            info += dbvalidate_info + ","
+
+    return info
+
+
 def make_teststep_chain_style(teststep: Dict) -> Text:
+    logger.info(f"teststep-:{teststep}")
+    step_info = ""
+    # 构建 DBDeal
+    if teststep.get("dbDeal"):
+        dbdeal_info = make_dbdeal_chain_style(teststep.get("dbDeal"))
+        step_info += dbdeal_info
+        logger.info(f"step_info:{step_info}")
+
     if teststep.get("request"):
-        step_info = f'RunRequest("{teststep["name"]}")'
+        step_info += f'RunRequest("{teststep["name"]}")'
     elif teststep.get("testcase"):
-        step_info = f'RunTestCase("{teststep["name"]}")'
+        step_info += f'RunTestCase("{teststep["name"]}")'
     else:
         raise exceptions.TestCaseFormatError(f"Invalid teststep: {teststep}")
 
@@ -334,6 +432,13 @@ def make_teststep_chain_style(teststep: Dict) -> Text:
             else:
                 step_info += f".assert_{assert_method}({check}, {expect})"
 
+    # 构建DBValidate
+    if teststep.get("dbValidate"):
+        dbvalidate_info = make_dbValidate_chain_style(teststep.get("dbValidate"))
+        logger.info(f"dbvalidate_info:{dbvalidate_info}")
+        step_info += "," + dbvalidate_info
+        logger.info(f"step_info:{step_info}")
+    logger.info(f"step_info:{step_info}")
     return f"Step({step_info})"
 
 
@@ -368,6 +473,7 @@ def make_testcase(testcase: Dict, dir_path: Text = None) -> Text:
 
     # prepare reference testcase
     imports_list = []
+    logger.info(f"testcase:{testcase}")
     teststeps = testcase["teststeps"]
     for teststep in teststeps:
         if not teststep.get("testcase"):
@@ -376,6 +482,7 @@ def make_testcase(testcase: Dict, dir_path: Text = None) -> Text:
         # make ref testcase pytest file
         ref_testcase_path = __ensure_absolute(teststep["testcase"])
         test_content = load_test_file(ref_testcase_path)
+        logger.info(f"ref_testcase_path:{ref_testcase_path}, test_content:{test_content}")
 
         if not isinstance(test_content, Dict):
             raise exceptions.TestCaseFormatError(f"Invalid teststep: {teststep}")
@@ -426,7 +533,9 @@ def make_testcase(testcase: Dict, dir_path: Text = None) -> Text:
             make_teststep_chain_style(step) for step in teststeps
         ],
     }
+    logger.info(f"data:{data}")
     content = __TEMPLATE__.render(data)
+    logger.info(f"content:{content}")
 
     # ensure new file's directory exists
     dir_path = os.path.dirname(testcase_python_abs_path)
@@ -619,3 +728,10 @@ def init_make_parser(subparsers):
     )
 
     return parser
+
+
+if __name__ == '__main__':
+    # __make(r"F:\httprunner\demo\basic.yml")
+    # __make(r"F:\httprunner\demo\hooks.yml")
+    main_make([r"F:\httprunner\demo\hooks.yml", ])
+    # main_make([r"F:\httprunner\demo\basic.yml",])

@@ -1,0 +1,87 @@
+config:
+    name: basic test with httpbin
+    base_url: https://httpbin.org/
+    variables: {"name": "bob"}
+    verify: true
+    export: ["name"]
+    weight: 1
+    mysql: {"host": "172.31.114.19", "port": 3306, "user": "root", "password": "rootpass", "database": "blog","timeout": 10, "isautocommit": True}
+
+teststeps:
+-
+    dbDeal:
+        - mysql:
+              conf: {"host": "172.31.114.19", "port": 3306, "user": "root", "password": "rootpass", "database": "blog","timeout": 10, "isautocommit": True}
+              variables:
+                  foo1: $username
+              exec:
+                  action: select
+                  sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+                  alias: tags
+              extract:
+                  tag_name: tags.list1[0].name
+        - mysql:
+              variables:
+                  foo1: $username
+              exec:
+                  action: select
+                  sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+                  alias: tags
+              extract:
+                  tag_name: tags.list1[0].name
+
+
+    name: headers
+    request:
+        url: /headers
+        method: GET
+    validate:
+        - eq: ["status_code", 200]
+        - eq: [body.headers.Host, "httpbin.org"]
+
+
+    dbValidate:
+        - mysql:
+              conf: {"host": "172.31.114.19", "port": 3306, "user": "root", "password": "rootpass", "database": "blog","timeout": 10, "isautocommit": True}
+              variables:
+                  foo1: $username
+              exec:
+                  action: select
+                  sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+                  alias: tags
+              extract:
+                  tag_name: tags.list1[0].name
+              validate:
+                  - eq: ["tag_name", "cczhao2"]
+        - mysql:
+              variables:
+                  foo1: $username
+              exec:
+                  action: select
+                  sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+                  alias: tags
+              extract:
+                  tag_name: tags.list1[0].name
+              validate:
+                  - eq: ["tag_name", "cczhao2"]
+#    dbValidate:
+#        mongo: {}
+#        variables:
+#            foo1: $username
+#        exec:
+#            action: select
+#            sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+#            alias: tags
+#        extract:
+#            tag_name: tags.list1[0].name
+#        validate:
+#            - eq : ["tag_name", "cczhao2"]
+
+#-
+#    name: user-agent
+#    request:
+#        url: /user-agent
+#        method: GET
+#    validate:
+#        - eq: ["status_code", 200]
+#        - startswith: [body."user-agent", "python-requests"]

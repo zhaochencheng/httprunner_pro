@@ -23,6 +23,7 @@ class TestLoginByCCode(HttpRunner):
                       "tags")
                 .extract()
                 .with_jmespath("tags.list1[0].name", "tag_name")
+
             ,
             RunRequest("下发短信验证码")
                 .with_variables(**{"url": "${get_loginid($address)}"})

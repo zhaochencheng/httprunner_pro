@@ -233,6 +233,12 @@ def ensure_testcase_v3(test_content: Dict) -> Dict:
     for step in test_content["teststeps"]:
         teststep = {}
 
+        if "dbDeal" in step:
+            teststep["dbDeal"] = step.pop("dbDeal")
+
+        if "dbValidate" in step:
+            teststep["dbValidate"] = step.pop("dbValidate")
+
         if "request" in step:
             teststep["request"] = _sort_request_by_custom_order(step.pop("request"))
         elif "api" in step:
