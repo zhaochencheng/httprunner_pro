@@ -19,10 +19,7 @@ class TestLoginByCCode(HttpRunner):
                 .mysql(**{"host": "${get_loginid($mysql_env)}", "port": "3306", "user": "root", "password": "root",
                           "database": "blog", "connect_timeout": "$connect_timeout"})
                 .with_variables(**{"name": "name", "state": 1, "create": "${get_loginid(created_by)}"})
-                .exec("select", '''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',
-                      "tags")
-                .extract()
-                .with_jmespath("tags.list1[0].name", "tag_name")
+                .exec('''INSERT INTO `blog_tag` (`name`, `created_on`, `created_by`, `modified_on`, `modified_by`, `deleted_on`, `state`) VALUES ( 'Golang2', '1639404686', 'iflytek2', '0', '', '0', '1');''')
 
             ,
             RunRequest("下发短信验证码")
@@ -39,7 +36,7 @@ class TestLoginByCCode(HttpRunner):
                 .mysql(**{"host": "${get_loginid($mysql_env)}", "port": "3306", "user": "root", "password": "root",
                           "database": "blog", "connect_timeout": "$connect_timeout"})
                 .with_variables(**{"name": "name", "state": 1, "create": "${get_loginid(created_by)}"})
-                .exec("select", '''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',
+                .exec('''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',
                       "tags")
                 .extract()
                 .with_jmespath("tags.list1[0].name", "valtag_name")
@@ -49,7 +46,7 @@ class TestLoginByCCode(HttpRunner):
             DBValidate()
                 .mysql()
                 .with_variables(**{"name": "name", "state": 1, "create": "${get_loginid(created_by)}"})
-                .exec("select", '''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',
+                .exec( '''(select {},{},{} from blog_tag where id = 62;).format($name, ${get_loginid(state)}, $create)''',
                       "tags")
                 .extract()
                 .with_jmespath("tags.list1[0].name", "val2tag_name")

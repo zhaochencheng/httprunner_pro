@@ -279,16 +279,14 @@ def make_dbdeal_mysql_chain_style(mapping: Dict) -> Text:
 
     if "exec" in mapping:
         exec = mapping.get("exec")
-        action = ""
         sql = ""
         alias = ""
-        if "action" in exec:
-            action = exec.get("action")
         if "sql" in exec:
             sql = exec.get("sql")
         if "alias" in exec:
             alias = exec.get("alias")
-        mysql_info += f""".exec('{action}', '{sql}', '{alias}')"""
+        logger.info(f"sql:::{sql}")
+        mysql_info += f'''.exec("""{sql}""", '{alias}')'''
     if "extract" in mapping:
         mysql_info += ".extract()"
         for extract_name, extract_path in mapping.get("extract").items():
@@ -733,5 +731,5 @@ def init_make_parser(subparsers):
 if __name__ == '__main__':
     # __make(r"F:\httprunner\demo\basic.yml")
     # __make(r"F:\httprunner\demo\hooks.yml")
-    main_make([r"F:\httprunner\demo\hooks.yml", ])
-    # main_make([r"F:\httprunner\demo\basic.yml",])
+    # main_make([r"F:\httprunner\demo\hooks.yml", ])
+    main_make([r"F:\httprunner\demo\basic2.yml",])

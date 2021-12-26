@@ -54,8 +54,8 @@ class MysqlDeal(object):
         self.__step_database.variables.update(variables)
         return self
 
-    def exec(self, handle: str = "", content: str = "", alias: str = "") -> "MysqlDeal":
-        operate = {"operate": handle, "content": content, "alias": alias}
+    def exec(self, content: str = "", alias: str = "") -> "MysqlDeal":
+        operate = {"content": content, "alias": alias}
         self.__step_database.mysql.operate.append(operate)
         return self
 

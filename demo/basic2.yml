@@ -1,0 +1,77 @@
+config:
+    name: basic test with httpbin
+    base_url: ${get_mock_url()}
+    variables: {"address": "hefei", "mockurl": "${get_mock_url()}", "sql": "select * from table where name = 'bob'",
+                "mysql_env": "${ENV(mysql_host)}", "connect_timeout": 20}
+    verify: true
+    export: ["name"]
+    weight: 1
+    mysql: {"host": "172.31.114.19", "port": 3306, "user": "root", "password": "root", "database": "blog"}
+
+teststeps:
+-
+    dbDeal:
+        - mysql:
+              conf: {"host": "172.31.114.19", "port": 3306, "user": "root", "password": "root", "database": "blog"}
+              variables:
+                  {"name": "name", "state": 1, "create": "${get_loginid(created_by)}"}
+              exec:
+                  sql: "INSERT INTO `blog_tag` (`name`, `created_on`, `created_by`, `modified_on`, `modified_by`, `deleted_on`, `state`) VALUES ( 'Golang2', '1639404686', 'iflytek2', '0', '', '0', '1');"
+                  alias: tags
+              extract:
+                  tag_name: tags.list1[0].name
+        - mysql:
+              exec:
+                  sql: 'UPDATE `blog`.`blog_tag` SET `id`="70", `name`="PHP", `created_on`="1639404686", `created_by`="iflytek2", `modified_on`="0", `modified_by`="", `deleted_on`="0", `state`="1" WHERE (`id`="70");'
+
+
+    name: headers
+    request:
+        url: /v1/tags
+        method: GET
+    validate:
+        - eq: ["status_code", 200]
+        - eq: [body.code, "000000"]
+
+
+    dbValidate:
+        - mysql:
+              conf: {"host": "172.31.114.19", "port": 3306, "user": "root", "password": "root", "database": "blog"}
+              exec:
+                  sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+                  alias: tags
+              extract:
+                  tag_name: tags.list1[0].name
+              validate:
+                  - eq: ["tag_name", "cczhao2"]
+        - mysql:
+              variables:
+                  foo1: $username
+              exec:
+                  sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+                  alias: tags
+              extract:
+                  tag_name: tags.list1[0].name
+              validate:
+                  - eq: ["tag_name", "cczhao2"]
+#    dbValidate:
+#        mongo: {}
+#        variables:
+#            foo1: $username
+#        exec:
+#            action: select
+#            sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
+#            alias: tags
+#        extract:
+#            tag_name: tags.list1[0].name
+#        validate:
+#            - eq : ["tag_name", "cczhao2"]
+
+#-
+#    name: user-agent
+#    request:
+#        url: /user-agent
+#        method: GET
+#    validate:
+#        - eq: ["status_code", 200]
+#        - startswith: [body."user-agent", "python-requests"]

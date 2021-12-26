@@ -396,7 +396,7 @@ class HttpRunner(object):
             # TODO 解析content 执行定制的format方式进行sql赋值
             parase_content = parse_mysql_format(operate.get("content"), __variables_mapping,
                                                 self.__project_meta.functions)
-            handle_result = __instancer.perform(action=operate.get("operate"), content=parase_content)
+            handle_result = __instancer.perform(content=parase_content)
             if alias:
                 __operateresult.update({alias: handle_result})
         extract_mapping = extract(originaltext=__operateresult, extractors=__extracts)
