@@ -72,9 +72,9 @@ class TestCaseRequestWithFunctions(HttpRunner):
             DBDeal()
             .mysql()
             .with_variables(**{"name": "name", "state": 1, "create": "${get_loginid(created_by)}"})
-            .exec("insert", '''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',"tags")
+            .exec('''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',"tags")
             .extract()
-            .with_jmespath("tags.list1[0].name", "tag_name")
+            .with_jmespath("tags.list1[0].name", "tag_name"),
             
             
             RunRequest("get with params")
@@ -90,13 +90,13 @@ class TestCaseRequestWithFunctions(HttpRunner):
             .assert_equal("status_code", 200)
             .assert_equal("body.args.foo1", "bar11")
             .assert_equal("body.args.sum_v", "3")
-            .assert_equal("body.args.foo2", "bar21")
+            .assert_equal("body.args.foo2", "bar21"),
             
             # 扩展了数据库 数据校验
             DBValidate()
             .mysql()
             .with_variables(**{"name": "name", "state": 1, "create": "${get_loginid(created_by)}"})
-            .exec("select", '''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',"tags")
+            .exec('''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',"tags")
             .extract()
             .with_jmespath("tags.list1[0].name", "valtag_name")
             .validate()
