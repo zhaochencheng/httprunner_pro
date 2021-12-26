@@ -292,9 +292,9 @@ Config("demo")
 
 执行mysql语句，支持对执行语句的结果赋值到变量中，供上下文使用
 
-**content（required）：**需要执行的sql语句
+* **content（required）:** 需要执行的sql语句
 
-**alias（optional）：**content执行后的结果赋值给该参数。该参数的值为{"list1": Union[List, Dict, Text, Any]}
+* **alias（optional）:** content执行后的结果赋值给该参数。该参数的值为{"list1": Union[List, Dict, Text, Any]}
 
 ```python
 .exec('''INSERT INTO `blog_tag` (`name`, `created_on`, `created_by`, `modified_on`, `modified_by`, `deleted_on`, `state`) VALUES ( 'Golang2', '1639404686', 'admin', '0', '', '0', '1');''')
@@ -327,7 +327,7 @@ var_name：存储提取值的变量名，可供后续测试步骤引用
 .with_jmespath("tags.list1[0].name", "tag_name"),
 ```
 
-**注意：**通过jmespath 提取的var_name可供后续的RunRequest和DBValidate进行上下文参数使用
+**注意：** 通过jmespath 提取的var_name可供后续的RunRequest和DBValidate进行上下文参数使用
 
 #### mongo 数据处理
 
