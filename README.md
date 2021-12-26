@@ -72,7 +72,7 @@ class TestCaseRequestWithFunctions(HttpRunner):
             DBDeal()
             .mysql()
             .with_variables(**{"name": "name", "state": 1, "create": "${get_loginid(created_by)}"})
-            .exec('''(select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)''',"tags")
+            .exec('''INSERT INTO `blog_tag` (`name`, `created_on`, `created_by`, `modified_on`, `modified_by`, `deleted_on`, `state`) VALUES ( 'Golang', '1639404686', 'admin', '0', '', '0', '1');''')
             .extract()
             .with_jmespath("tags.list1[0].name", "tag_name"),
             
