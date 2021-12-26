@@ -16,3 +16,4 @@ reports
 .venv
 *.xml
 htmlcov/
+demo
