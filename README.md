@@ -189,7 +189,7 @@ teststeps:
 
 * Step中数据库操作 DBDeal()和DBValidate()中添加；
 
-	​	具体配置参数见 [3.3 DBDeal](####3.3 DBDeal) [3.4 DBValidate](####3.4 DBValidate)
+	​	具体配置参数见 [3.3 DBDeal](###3.3 DBDeal) [3.4 DBValidate](###3.4 DBValidate)
 
 	​	eg：DBDeal().mysql()、DBValidate().mysql()
 
