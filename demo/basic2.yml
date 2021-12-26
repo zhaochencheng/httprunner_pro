@@ -33,17 +33,7 @@ teststeps:
         - eq: ["status_code", 200]
         - eq: [body.code, "000000"]
 
-
     dbValidate:
-        - mysql:
-              conf: {"host": "172.31.114.19", "port": 3306, "user": "root", "password": "root", "database": "blog"}
-              exec:
-                  sql: (select {},{},{} from blog_tag;).format($name, ${get_loginid(state)}, $create)
-                  alias: tags
-              extract:
-                  tag_name: tags.list1[0].name
-              validate:
-                  - eq: ["tag_name", "cczhao2"]
         - mysql:
               variables:
                   foo1: $username
@@ -53,7 +43,7 @@ teststeps:
               extract:
                   tag_name: tags.list1[0].name
               validate:
-                  - eq: ["tag_name", "cczhao2"]
+                  - eq: ["tag_name", "cc222"]
 #    dbValidate:
 #        mongo: {}
 #        variables:

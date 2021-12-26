@@ -54,6 +54,7 @@ def main_run(extra_args) -> enum.IntEnum:
 
     extra_args_new.extend(testcase_path_list)
     logger.info(f"start to run tests with pytest. HttpRunner version: {__version__}")
+    logger.info(f"extra_args_new:{extra_args_new}")
     return pytest.main(extra_args_new)
 
 
