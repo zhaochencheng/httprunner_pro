@@ -31,7 +31,8 @@ class MethodEnum(Text, Enum):
     PATCH = "PATCH"
 
 
-class MysqlConfig(BaseModel):
+class DataBaseConfig(BaseModel):
+    dbtype: Union[Text, None]
     host: Union[Text, None]
     port: Union[Text, None]
     user: Union[Text, None]
@@ -52,24 +53,14 @@ class TConfig(BaseModel):
     export: Export = []
     path: Text = None
     weight: int = 1
-    mysql: Union[MysqlConfig, None] = None
-
-
-class Mongo(BaseModel):
-    host: Text
-    port: Text
-
-
-class Mysql(BaseModel):
-    mysqlconfig: Union[MysqlConfig, None] = None
-    instance: Union[Callable, None] = []
-    operate: List[Dict[Text, Any]] = []
+    dbconfig: List[DataBaseConfig] = []
 
 
 class DataBase(BaseModel):
+    dbconfig: Union[DataBaseConfig, None] = None
+    instance: Union[Callable, None] = None
+    operate: List[Dict[Text, Any]] = []
     variables: VariablesMapping = {}
-    mysql: Union[Mysql, None] = None
-    mongo: Union[Mongo, None] = None
     operatingresults: Dict[Text, Any] = {}
     extract: VariablesMapping = {}
 
@@ -78,8 +69,6 @@ class DataBaseValidate(BaseModel):
     validators: Validators = Field([], alias="validate")
     validate_script: List[Text] = []
     database: DataBase
-    # mysql: Union[Mysql, None] = None
-    # mongo: Union[Mongo, None] = None
 
 
 class TRequest(BaseModel):

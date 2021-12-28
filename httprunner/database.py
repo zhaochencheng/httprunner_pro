@@ -1,15 +1,48 @@
+import re
+from typing import Text
+
 import pymysql
 from pymongo import MongoClient
+from pymongo.cursor import Cursor
+
+mongo_re_style1 = re.compile('''^db.getCollection\((["'])\w+(["'])\)''')
+mongo_re_style2 = re.compile('''^db\.\w+\.\.*''')
 
 
 class MongoCli(object):
-    def __init__(self, host, port, *args, **kwargs):
+    def __init__(self, host, port, database, *args, **kwargs):
         self._host = host
         self._port = port
         self._cli = MongoClient(host=self._host, port=int(self._port), *args, **kwargs)
+        self._database = self._cli[database]
 
-    def database(self, name):
-        return self._cli[name]
+    def database(self):
+        return self._database
+
+    def __exec(self, content: Text):
+        # content: db.getCollection("tb_user_account").find({})
+        # 正则匹配获取 collection. 获取数据库操作如 find
+        # eval执行 数据库操作 -- importlib 导入映射后的mongo方法
+        result = mongo_re_style1.match(content)
+        _fmt_to_py = ""
+        if result:
+            _collection = content[0: result.end()][17:-1].strip('\'').strip("\"")
+            _fmt_to_py = "".join([_collection, content[result.end():]])
+        else:
+            result = mongo_re_style2.match(content)
+            if result:
+                _collection = content[0: result.end()][3:-1]
+                _fmt_to_py = content[3:]
+            else:
+                raise ValueError("mongo exec value error, can not get collection ")
+        collection = self._database[_collection]
+        mongoresult = eval(_fmt_to_py, {_collection: collection})
+        if isinstance(mongoresult, Cursor):
+            mongoresult = [i for i in mongoresult]
+        return {"list1": mongoresult}
+
+    def perform(self, content: Text):
+        return self.__exec(content)
 
 
 class MysqlCli(object):
@@ -35,24 +68,36 @@ class MysqlCli(object):
         return self.__exec(content=content)
 
 
-#
+class RedisSignleCli(object):
+    def __init__(self):
+        pass
+
+class RedisClusterCli(object):
+    def __init__(self):
+        pass
+
+class RedisSentinelCli(object):
+    def __init__(self):
+        pass
+
+
 if __name__ == '__main__':
-    mysql = MysqlCli(host="172.31.114.19", port=3306, user="root", password="root", database="blog")
-    content = '''select * from blog_tag'''
-    #     content = '''INSERT INTO `blog_tag` (`name`, `created_on`, `created_by`, `modified_on`, `modified_by`, `deleted_on`, `state`) VALUES ( 'Golang', '1639404686', 'iflytek2', '0', '', '0', '1');
-    # '''
-    #     content = '''UPDATE `blog`.`blog_tag` SET `id`='70', `name`='PHP', `created_on`='1639404686', `created_by`='iflytek2', `modified_on`='0', `modified_by`='', `deleted_on`='0', `state`='1' WHERE (`id`='70');
-    # '''
-    #     content = '''CREATE TABLE `blog_tag2` (
-    #   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-    #   `name` varchar(100) DEFAULT '' COMMENT '标签名称',
-    #   `created_on` int(10) unsigned DEFAULT '0' COMMENT '创建时间',
-    #   `created_by` varchar(100) DEFAULT '' COMMENT '创建人',
-    #   `modified_on` int(10) unsigned DEFAULT '0' COMMENT '修改时间',
-    #   `modified_by` varchar(100) DEFAULT '' COMMENT '修改人',
-    #   `deleted_on` int(10) unsigned DEFAULT '0',
-    #   `state` tinyint(3) unsigned DEFAULT '1' COMMENT '状态 0为禁用、1为启用',
-    #   PRIMARY KEY (`id`)
-    # ) ENGINE=InnoDB AUTO_INCREMENT=71 DEFAULT CHARSET=utf8 COMMENT='文章标签管理';'''
-    result = mysql.perform(action="select", content=content)
-    print(result)
+    mongocli = MongoCli(host="172.31.114.54", port=37017, database="caccount_test")
+    db = mongocli.database()
+    # print(db)
+    # print(dir(db))
+    tb_user_account = db["tb_user_account"]
+    # print(tb_user_account)
+    # print(tb_user_account.find({}).sort([("CreateTime", 1),]))
+    # print(tb_user_account.find_one({}))
+    # result = eval('tb_user_account.find({})')
+    tb_user_account.find().sort()
+    # result = tb_user_account.find_one({})
+    # result = tb_user_account.insert({"name": "bob"})
+    # print(result)
+    # print([i for i in result])
+    # if isinstance(result, Cursor):
+    #     print([i for i in result])
+    # result = eval('tb_user_account.find({}).sort([("CreateTime", 1),])')
+    # print([i for i in result])
+    # print(tb_user_account.find())
