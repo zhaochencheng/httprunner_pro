@@ -25,6 +25,18 @@ class DBDeal(object):
         return databaseDeal(step_database=self.__step_database, host=host, port=port, user=user
                             , password=password, database=database, **kwargs)
 
+    def redis_signle(self, host=None, port=None, database=None, **kwargs):
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="redis_signle")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, database=database, **kwargs)
+
+    def redis_cluster(self, host=None, port=None, **kwargs):
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="redis_cluster")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, **kwargs)
+
+    def redis_sentinel(self, host=None, port=None, database=None, **kwargs):
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="redis_sentinel")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, database=database, **kwargs)
+
     def perform(self) -> "DataBase":
         return self.__step_database
 
@@ -95,6 +107,22 @@ class DBValidate(object):
         self.__db_validate.database.dbconfig.dbtype = "mongo"
         return databaseValidate(db_validate=self.__db_validate, host=host, port=port, user=user,
                                 password=password,
+                                database=database, **kwargs)
+
+    def redis_signle(self, host: Text = None, port: Text = None, database: Text = None,
+                     **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "redis_signle"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port,
+                                database=database, **kwargs)
+
+    def redis_cluster(self, host: Text = None, port: Text = None, **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "redis_cluster"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port, **kwargs)
+
+    def redis_sentinel(self, host: Text = None, port: Text = None, database: Text = None,
+                       **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "redis_sentinel"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port,
                                 database=database, **kwargs)
 
     def perform(self) -> "DataBaseValidate":

@@ -84,6 +84,23 @@ class Config(object):
         self.__dbconfig.append(dbconfig)
         return self
 
+    def redis_signle(self, host: Text = None, port: Text = None, database: Text = None, **kwargs):
+        dbconfig = DataBaseConfig(
+            **{"dbtype": "redis_signle", "host": host, "port": port, "database": database, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
+        return self
+
+    def redis_cluster(self, host: Text = None, port: Text = None, **kwargs):
+        dbconfig = DataBaseConfig(**{"dbtype": "redis_cluster", "host": host, "port": port, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
+        return self
+
+    def redis_sentinel(self, host: Text = None, port: Text = None, database: Text = None, **kwargs):
+        dbconfig = DataBaseConfig(
+            **{"dbtype": "redis_sentinel", "host": host, "port": port, "database": database, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
+        return self
+
     def perform(self) -> TConfig:
         return TConfig(
             name=self.__name,

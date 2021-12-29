@@ -4,8 +4,6 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Text, NoReturn
 
-from httprunner.database import MysqlCli, MongoCli
-
 try:
     import allure
 
@@ -20,9 +18,10 @@ from httprunner.client import HttpSession
 from httprunner.exceptions import ValidationFailure, ParamsError
 from httprunner.ext.uploader import prepare_upload_step
 from httprunner.loader import load_project_meta, load_testcase_file
-from httprunner.parser import build_url, parse_data, parse_variables_mapping, parse_database_format
+from httprunner.parser import build_url, parse_data, parse_variables_mapping, parse_database_format, parse_string_value
 from httprunner.response import ResponseObject
 from httprunner.testcase import Config, Step
+from httprunner.database import MysqlCli, MongoCli, RedisSignleCli, RedisClusterCli, RedisSentinelCli
 from httprunner.utils import merge_variables, get_os_environ_by_prefix
 from httprunner.dbutil import extract, validate
 from httprunner.models import (
@@ -40,8 +39,9 @@ from httprunner.models import (
 
 ENV_MYSQL_PREFIX = "hrun_mysql_"
 ENV_MONGO_PREFIX = "hrun_mongo_"
-ENV_REDIS_PREFIX = "hrun_redis_"
-ENV_REDISCLUSTER_PREFIX = "hrun_rediscluster_"
+ENV_REDISSIGNLE_PREFIX = "hrun_redis_signle_"
+ENV_REDISCLUSTER_PREFIX = "hrun_redis_cluster_"
+ENV_REDISSENTINEL_PREFIX = "hrun_redis_sentinel_"
 
 
 class HttpRunner(object):
@@ -361,6 +361,19 @@ class HttpRunner(object):
                 if dbconfig.host and dbconfig.port and dbconfig.database:
                     return True
                 return False
+            elif dbconfig.dbtype == "redis_signle":
+                if dbconfig.host and dbconfig.port and dbconfig.database:
+                    return True
+                return False
+            elif dbconfig.dbtype == "redis_cluster":
+                if (dbconfig.host and dbconfig.port) or dbconfig.kwargs.get("startup_nodes", None):
+                    return True
+                return False
+            elif dbconfig.dbtype == "redis_sentinel":
+                if (dbconfig.host and dbconfig.port or dbconfig.kwargs.get("servicename", None)) and dbconfig.database:
+                    return True
+                return False
+            return True
 
         _choiced_dbconfig = DataBaseConfig()
         _choiced_dbconfig_flag = False
@@ -390,6 +403,12 @@ class HttpRunner(object):
                     env_prefix = ENV_MYSQL_PREFIX
                 elif _dbtype == "mongo":
                     env_prefix = ENV_MONGO_PREFIX
+                elif _dbtype == "redis_signle":
+                    env_prefix = ENV_REDISSIGNLE_PREFIX
+                elif _dbtype == "redis_cluster":
+                    env_prefix = ENV_REDISCLUSTER_PREFIX
+                elif _dbtype == "redis_sentinel":
+                    env_prefix = ENV_REDISSENTINEL_PREFIX
                 else:
                     raise ValueError("dbtype value illegal")
                 config_from_env = get_os_environ_by_prefix(env_prefix)
@@ -398,8 +417,10 @@ class HttpRunner(object):
                 env_config.dbtype = _dbtype
                 for i in ["host", "port", "user", "password", "database"]:
                     config_from_env.pop(i, None)
-                # todo 从配置文件读入的配置 配置值为int 怎么传？ 通过ast.literal_eval()处理？
-                # env_config.kwargs = config_from_env
+                # 从配置文件读入的配置 配置值为int 怎么传？ 通过ast.literal_eval()处理？
+                for other_config in config_from_env:
+                    config_from_env[other_config] = parse_string_value(config_from_env[other_config])
+                env_config.kwargs = config_from_env
                 logger.debug(f"env_config:{env_config}")
 
                 if check_instance_param(env_config):
@@ -426,7 +447,16 @@ class HttpRunner(object):
         if _dbtype == "mongo":
             return MongoCli(host=_choiced_dbconfig.host, port=int(_choiced_dbconfig.port),
                             database=_choiced_dbconfig.database, **_choiced_dbconfig.kwargs)
-        # redis实例化
+        # redis_signle实例化
+        if _dbtype == "redis_signle":
+            return RedisSignleCli(host=_choiced_dbconfig.host, port=int(_choiced_dbconfig.port),
+                                  database=_choiced_dbconfig.database, **_choiced_dbconfig.kwargs)
+        if _dbtype == "redis_cluster":
+            return RedisClusterCli(host=_choiced_dbconfig.host, port=_choiced_dbconfig.port,
+                                   **_choiced_dbconfig.kwargs)
+        if _dbtype == "redis_sentinel":
+            return RedisSentinelCli(host=_choiced_dbconfig.host, port=_choiced_dbconfig.port,
+                                    database=_choiced_dbconfig.database, **_choiced_dbconfig.kwargs)
         # elasticsearch实例化
 
     def __database_exec(self, config: DataBase) -> Dict:

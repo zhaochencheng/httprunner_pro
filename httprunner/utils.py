@@ -30,7 +30,7 @@ def set_os_environ(variables_mapping):
     """
     for variable in variables_mapping:
         os.environ[variable] = variables_mapping[variable]
-        logger.debug(f"Set OS environment variable: {variable}")
+        logger.debug(f"Set OS environment variable: {variable}- value:{variables_mapping[variable]}")
 
 
 def unset_os_environ(variables_mapping):
