@@ -456,7 +456,11 @@ DBDeal()
 >
 > db.tb_user_account.insert()
 
+**todo：** 使用eval执行字符串，存在部分mongo shell与 pymongo实例传参不一致导致的报错
 
+如 db.tb_user_account.find({}).sort({"UserID": -1})  和 pymongo中 tb_user_account.find({}).sort([{"UserID": -1}])
+
+后续，重新封装pymongo。适配mongo shell语法
 
 #### redis_signle 数据处理
 
