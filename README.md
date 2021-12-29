@@ -21,10 +21,10 @@
   * [使用前提](##1·使用前提)
   * [安装](##2·安装)
   * [关键字说明](##3·关键字说明)
-  * [数据库配置](###3.1 数据库配置)
-  * [Config](###3.2 Config)
-  * [DBDeal](###3.3 DBDeal)
-  * [DBValidate](###3.4 DBValidate)
+  * [数据库配置](###3.1数据库配置)
+  * [Config](###3.2Config)
+  * [DBDeal](###3.3DBDeal)
+  * [DBValidate](###3.4DBValidate)
 * [如何改造该框架\或如何改造httprunner框架](##三.如何改造该框架)
 
 
