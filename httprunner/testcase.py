@@ -8,15 +8,15 @@ from httprunner.models import (
     MethodEnum,
     TestCase,
     DataBase,
-    MysqlConfig, DataBaseValidate,
+    DataBaseConfig,
+    DataBaseValidate,
 )
 from httprunner.testcasedb import (
     DBDeal,
-    MysqlDeal,
-    MongoDeal,
+    databaseDeal,
     DataBaseExtraction,
     DBValidate,
-    MysqlValidate,
+    databaseValidate,
     ValidateExtraction,
     DataBaseValidation
 
@@ -31,7 +31,7 @@ class Config(object):
         self.__verify = False
         self.__export = []
         self.__weight = 1
-        self.__mysql = MysqlConfig()
+        self.__dbconfig = []
 
         caller_frame = inspect.stack()[1]
         self.__path = caller_frame.filename
@@ -71,12 +71,34 @@ class Config(object):
     def mysql(self, host: Text = None, port: Text = None, user: Text = None, password: Text = None,
               database: Text = None,
               **kwargs) -> "Config":
-        self.__mysql.host = host
-        self.__mysql.port = port
-        self.__mysql.user = user
-        self.__mysql.password = password
-        self.__mysql.database = database
-        self.__mysql.kwargs = kwargs
+        dbconfig = DataBaseConfig(**{"dbtype": "mysql", "host": host, "port": port, "user": user,
+                                     "password": password, "database": database, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
+        return self
+
+    def mongo(self, host: Text = None, port: Text = None, user: Text = None, password: Text = None,
+              database: Text = None,
+              **kwargs) -> "Config":
+        dbconfig = DataBaseConfig(**{"dbtype": "mongo", "host": host, "port": port, "user": user,
+                                     "password": password, "database": database, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
+        return self
+
+    def redis_signle(self, host: Text = None, port: Text = None, database: Text = None, **kwargs):
+        dbconfig = DataBaseConfig(
+            **{"dbtype": "redis_signle", "host": host, "port": port, "database": database, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
+        return self
+
+    def redis_cluster(self, host: Text = None, port: Text = None, **kwargs):
+        dbconfig = DataBaseConfig(**{"dbtype": "redis_cluster", "host": host, "port": port, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
+        return self
+
+    def redis_sentinel(self, host: Text = None, port: Text = None, database: Text = None, **kwargs):
+        dbconfig = DataBaseConfig(
+            **{"dbtype": "redis_sentinel", "host": host, "port": port, "database": database, "kwargs": kwargs})
+        self.__dbconfig.append(dbconfig)
         return self
 
     def perform(self) -> TConfig:
@@ -88,7 +110,7 @@ class Config(object):
             export=list(set(self.__export)),
             path=self.__path,
             weight=self.__weight,
-            mysql=self.__mysql,
+            dbconfig=self.__dbconfig,
         )
 
 
@@ -427,12 +449,11 @@ class Step(object):
                 StepRefCase,
 
                 DBDeal,
-                MysqlDeal,
-                MongoDeal,
+                databaseDeal,
                 DataBaseExtraction,
 
                 DBValidate,
-                MysqlValidate,
+                databaseValidate,
                 ValidateExtraction,
                 DataBaseValidation
             ],

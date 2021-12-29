@@ -2,8 +2,7 @@ from typing import Text, Any, Union
 
 from httprunner.models import (
     DataBase,
-    Mysql,
-    MysqlConfig,
+    DataBaseConfig,
     DataBaseValidate,
 )
 
@@ -15,48 +14,52 @@ from httprunner.models import (
 class DBDeal(object):
     def __init__(self):
         self.__step_database = DataBase()
-        self.__mysql = Mysql()
-        self.__step_database.mysql = self.__mysql
 
-    def mongo(self) -> "MongoDeal":
-        return MongoDeal(self.__step_database)
+    def mongo(self, host=None, port=None, user=None, password=None, database=None, **kwargs) -> "databaseDeal":
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="mongo")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, user=user
+                            , password=password, database=database, **kwargs)
 
-    def mysql(self, host=None, port=None, user=None, password=None, database=None, **kwargs) -> "MysqlDeal":
-        return MysqlDeal(step_database=self.__step_database, host=host, port=port, user=user
-                         , password=password, database=database, **kwargs)
+    def mysql(self, host=None, port=None, user=None, password=None, database=None, **kwargs) -> "databaseDeal":
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="mysql")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, user=user
+                            , password=password, database=database, **kwargs)
+
+    def redis_signle(self, host=None, port=None, database=None, **kwargs):
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="redis_signle")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, database=database, **kwargs)
+
+    def redis_cluster(self, host=None, port=None, **kwargs):
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="redis_cluster")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, **kwargs)
+
+    def redis_sentinel(self, host=None, port=None, database=None, **kwargs):
+        self.__step_database.dbconfig = DataBaseConfig(dbtype="redis_sentinel")
+        return databaseDeal(step_database=self.__step_database, host=host, port=port, database=database, **kwargs)
 
     def perform(self) -> "DataBase":
         return self.__step_database
 
 
-class MongoDeal(object):
-    def __init__(self, __step_database: "DataBase"):
-        self.__step_database = __step_database
-
-    def perform(self) -> "DataBase":
-        return self.__step_database
-
-
-class MysqlDeal(object):
+class databaseDeal(object):
     def __init__(self, step_database: "DataBase", host: Text = None, port: Text = None, user: Text = None,
                  password: Text = None, database: Text = None,
                  **kwargs):
         self.__step_database = step_database
-        self.__step_database.mysql.mysqlconfig = MysqlConfig()
-        self.__step_database.mysql.mysqlconfig.host = host
-        self.__step_database.mysql.mysqlconfig.port = port
-        self.__step_database.mysql.mysqlconfig.user = user
-        self.__step_database.mysql.mysqlconfig.password = password
-        self.__step_database.mysql.mysqlconfig.database = database
-        self.__step_database.mysql.mysqlconfig.kwargs = kwargs
+        self.__step_database.dbconfig.host = host
+        self.__step_database.dbconfig.port = port
+        self.__step_database.dbconfig.user = user
+        self.__step_database.dbconfig.password = password
+        self.__step_database.dbconfig.database = database
+        self.__step_database.dbconfig.kwargs = kwargs
 
-    def with_variables(self, **variables) -> "MysqlDeal":
+    def with_variables(self, **variables) -> "databaseDeal":
         self.__step_database.variables.update(variables)
         return self
 
-    def exec(self, content: str, alias: str = "") -> "MysqlDeal":
+    def exec(self, content: str, alias: str = "") -> "databaseDeal":
         operate = {"content": content, "alias": alias}
-        self.__step_database.mysql.operate.append(operate)
+        self.__step_database.operate.append(operate)
         return self
 
     def extract(self) -> "DataBaseExtraction":
@@ -85,26 +88,50 @@ class DataBaseExtraction(object):
 
 class DBValidate(object):
     def __init__(self):
-        self.__database = DataBase()
+        self.__databaseconfig = DataBaseConfig()
+        self.__database = DataBase(dbconfig=self.__databaseconfig)
         self.__db_validate = DataBaseValidate(**{"database": self.__database})
         # self.__db_validate.database = self.__database
 
     def mysql(self, host: Text = None, port: Text = None, user: Text = None,
               password: Text = None, database: Text = None,
-              **kwargs) -> "MysqlValidate":
-        return MysqlValidate(db_validate=self.__db_validate, host=host, port=port, user=user,
-                             password=password,
-                             database=database, **kwargs)
+              **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "mysql"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port, user=user,
+                                password=password,
+                                database=database, **kwargs)
+
+    def mongo(self, host: Text = None, port: Text = None, user: Text = None,
+              password: Text = None, database: Text = None,
+              **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "mongo"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port, user=user,
+                                password=password,
+                                database=database, **kwargs)
+
+    def redis_signle(self, host: Text = None, port: Text = None, database: Text = None,
+                     **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "redis_signle"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port,
+                                database=database, **kwargs)
+
+    def redis_cluster(self, host: Text = None, port: Text = None, **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "redis_cluster"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port, **kwargs)
+
+    def redis_sentinel(self, host: Text = None, port: Text = None, database: Text = None,
+                       **kwargs) -> "databaseValidate":
+        self.__db_validate.database.dbconfig.dbtype = "redis_sentinel"
+        return databaseValidate(db_validate=self.__db_validate, host=host, port=port,
+                                database=database, **kwargs)
 
     def perform(self) -> "DataBaseValidate":
         return self.__db_validate
 
 
-class MysqlValidate(MysqlDeal):
+class databaseValidate(databaseDeal):
     def __init__(self, db_validate: "DataBaseValidate", **kwargs):
         self.__db_validate = db_validate
-        self.__mysql = Mysql()
-        self.__db_validate.database.mysql = self.__mysql
         super().__init__(step_database=self.__db_validate.database, **kwargs)
 
     def extract(self) -> "ValidateExtraction":

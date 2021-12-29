@@ -18,11 +18,11 @@ from httprunner.client import HttpSession
 from httprunner.exceptions import ValidationFailure, ParamsError
 from httprunner.ext.uploader import prepare_upload_step
 from httprunner.loader import load_project_meta, load_testcase_file
-from httprunner.parser import build_url, parse_data, parse_variables_mapping, parse_mysql_format
+from httprunner.parser import build_url, parse_data, parse_variables_mapping, parse_database_format, parse_string_value
 from httprunner.response import ResponseObject
 from httprunner.testcase import Config, Step
+from httprunner.database import MysqlCli, MongoCli, RedisSignleCli, RedisClusterCli, RedisSentinelCli
 from httprunner.utils import merge_variables, get_os_environ_by_prefix
-from httprunner.database import MysqlCli
 from httprunner.dbutil import extract, validate
 from httprunner.models import (
     TConfig,
@@ -34,10 +34,14 @@ from httprunner.models import (
     TestCaseInOut,
     ProjectMeta,
     TestCase,
-    Hooks, DataBase, MysqlConfig
+    Hooks, DataBase, DataBaseConfig
 )
 
 ENV_MYSQL_PREFIX = "hrun_mysql_"
+ENV_MONGO_PREFIX = "hrun_mongo_"
+ENV_REDISSIGNLE_PREFIX = "hrun_redis_signle_"
+ENV_REDISCLUSTER_PREFIX = "hrun_redis_cluster_"
+ENV_REDISSENTINEL_PREFIX = "hrun_redis_sentinel_"
 
 
 class HttpRunner(object):
@@ -324,98 +328,170 @@ class HttpRunner(object):
             config.base_url, config.variables, self.__project_meta.functions
         )
         # 对config中mysql进行解析
-        config.mysql = self.__parse_config_mysql(config.mysql, config)
+        config.dbconfig = [self.__parse_dbconfig(i, config) for i in config.dbconfig]
 
-    def __parse_config_mysql(self, mysqlconfig: MysqlConfig, tconfig: TConfig) -> MysqlConfig:
-        mysqlconfig.host = parse_data(
-            mysqlconfig.host, tconfig.variables, self.__project_meta.functions
+    def __parse_dbconfig(self, dbconfig: DataBaseConfig, tconfig: TConfig) -> DataBaseConfig:
+        dbconfig.host = parse_data(
+            dbconfig.host, tconfig.variables, self.__project_meta.functions
         )
-        mysqlconfig.port = parse_data(
-            mysqlconfig.port, tconfig.variables, self.__project_meta.functions
+        dbconfig.port = parse_data(
+            dbconfig.port, tconfig.variables, self.__project_meta.functions
         )
-        mysqlconfig.user = parse_data(
-            mysqlconfig.user, tconfig.variables, self.__project_meta.functions
+        dbconfig.user = parse_data(
+            dbconfig.user, tconfig.variables, self.__project_meta.functions
         )
-        mysqlconfig.password = parse_data(
-            mysqlconfig.password, tconfig.variables, self.__project_meta.functions
+        dbconfig.password = parse_data(
+            dbconfig.password, tconfig.variables, self.__project_meta.functions
         )
-        mysqlconfig.database = parse_data(
-            mysqlconfig.database, tconfig.variables, self.__project_meta.functions
+        dbconfig.database = parse_data(
+            dbconfig.database, tconfig.variables, self.__project_meta.functions
         )
-        mysqlconfig.kwargs = parse_data(
-            mysqlconfig.kwargs, tconfig.variables, self.__project_meta.functions
+        dbconfig.kwargs = parse_data(
+            dbconfig.kwargs, tconfig.variables, self.__project_meta.functions
         )
-        return mysqlconfig
+        return dbconfig
 
-    def __mysql_instance(self, tconfig: TConfig, mysqlconfig: MysqlConfig):
-        # get mysql config from Config.mysql() or DBDeal.mysql() or .env file.
-        # and instantiation MysqlCli
-        def check_instance(config: MysqlConfig):
-            if config.host and config.port and config.database and config.user and config.password:
-                return True
-            return False
+    def __choice_dbconfig(self, dbconfig: DataBaseConfig, tconfig: TConfig):
+        def check_instance_param(dbconfig: DataBaseConfig):
+            if dbconfig.dbtype == "mysql":
+                if dbconfig.host and dbconfig.port and dbconfig.database and dbconfig.user and dbconfig.password:
+                    return True
+                return False
+            elif dbconfig.dbtype == "mongo":
+                if dbconfig.host and dbconfig.port and dbconfig.database:
+                    return True
+                return False
+            elif dbconfig.dbtype == "redis_signle":
+                if dbconfig.host and dbconfig.port and dbconfig.database:
+                    return True
+                return False
+            elif dbconfig.dbtype == "redis_cluster":
+                if (dbconfig.host and dbconfig.port) or dbconfig.kwargs.get("startup_nodes", None):
+                    return True
+                return False
+            elif dbconfig.dbtype == "redis_sentinel":
+                if (dbconfig.host and dbconfig.port or dbconfig.kwargs.get("servicename", None)) and dbconfig.database:
+                    return True
+                return False
+            return True
 
-        # priority: mysql.mysqlconfig > tconfig.mysql > .env.mysql
-        if check_instance(mysqlconfig):
-            logger.debug("mysql config using DBDeal.mysql")
-            mysqlconfig = self.__parse_config_mysql(mysqlconfig, tconfig)
-            return MysqlCli(host=mysqlconfig.host, port=int(mysqlconfig.port), user=mysqlconfig.user,
-                            password=mysqlconfig.password, database=mysqlconfig.database, **mysqlconfig.kwargs)
-        elif check_instance(tconfig.mysql):
-            logger.debug("mysql config using Config.mysql")
-            return MysqlCli(host=tconfig.mysql.host, port=int(tconfig.mysql.port), user=tconfig.mysql.user,
-                            password=tconfig.mysql.password, database=tconfig.mysql.database, **tconfig.mysql.kwargs)
+        _choiced_dbconfig = DataBaseConfig()
+        _choiced_dbconfig_flag = False
+        _dbtype = dbconfig.dbtype
+        logger.info(f"dbconfig:{dbconfig}")
+
+        # priority: mysql.config > tconfig.mysql > .env.mysql
+        if check_instance_param(dbconfig):
+            logger.debug("config using DBDeal()")
+            dbconfig = self.__parse_dbconfig(dbconfig, tconfig)
+            _choiced_dbconfig = dbconfig
+            _choiced_dbconfig_flag = True
+            return _choiced_dbconfig, _choiced_dbconfig_flag
         else:
-            logger.debug("mysql config using .env file")
-            config_from_env = get_os_environ_by_prefix(ENV_MYSQL_PREFIX)
-            logger.debug(f"config_from_env: {config_from_env}")
-            env_config = MysqlConfig(**config_from_env)
-            for i in ["host", "port", "user", "password", "database"]:
-                config_from_env.pop(i, None)
-            # todo 从配置文件读入的配置 配置值为int 怎么传？ 通过ast.literal_eval()处理？
-            # env_config.kwargs = config_from_env
-            logger.debug(f"env_config:{env_config}")
+            logger.info(f"tconfig.dbconfig:{tconfig.dbconfig}")
+            for config in tconfig.dbconfig:
+                if config.dbtype == _dbtype:
+                    if check_instance_param(config):
+                        logger.debug("config using Config()")
+                        _choiced_dbconfig = config
+                        _choiced_dbconfig_flag = True
+                        return _choiced_dbconfig, _choiced_dbconfig_flag
 
-            if check_instance(env_config):
-                return MysqlCli(host=env_config.host, port=int(env_config.port), user=env_config.user,
-                                password=env_config.password, database=env_config.database, **env_config.kwargs)
-            else:
-                raise Exception(
-                    "** mysql is not confied! please config into Config.mysql() or DBDeal.mysql() or .env file **")
+            if not _choiced_dbconfig_flag:
+                logger.debug("config using .env file")
+                if _dbtype == "mysql":
+                    env_prefix = ENV_MYSQL_PREFIX
+                elif _dbtype == "mongo":
+                    env_prefix = ENV_MONGO_PREFIX
+                elif _dbtype == "redis_signle":
+                    env_prefix = ENV_REDISSIGNLE_PREFIX
+                elif _dbtype == "redis_cluster":
+                    env_prefix = ENV_REDISCLUSTER_PREFIX
+                elif _dbtype == "redis_sentinel":
+                    env_prefix = ENV_REDISSENTINEL_PREFIX
+                else:
+                    raise ValueError("dbtype value illegal")
+                config_from_env = get_os_environ_by_prefix(env_prefix)
+                logger.debug(f"config_from_env: {config_from_env}")
+                env_config = DataBaseConfig(**config_from_env)
+                env_config.dbtype = _dbtype
+                for i in ["host", "port", "user", "password", "database"]:
+                    config_from_env.pop(i, None)
+                # 从配置文件读入的配置 配置值为int 怎么传？ 通过ast.literal_eval()处理？
+                for other_config in config_from_env:
+                    config_from_env[other_config] = parse_string_value(config_from_env[other_config])
+                env_config.kwargs = config_from_env
+                logger.debug(f"env_config:{env_config}")
 
-    def __mysql_exec(self, config: DataBase) -> Dict:
-        # execute DBDeal.mysql.operate
-        __instancer = config.mysql.instance
+                if check_instance_param(env_config):
+                    _choiced_dbconfig = env_config
+                    _choiced_dbconfig_flag = True
+                    return _choiced_dbconfig, _choiced_dbconfig_flag
+                else:
+                    return _choiced_dbconfig, _choiced_dbconfig_flag
+            raise Exception("Logical error")
+
+    def __db_instance(self, dbconfig: DataBaseConfig, tconfig: TConfig, ):
+        # get mysql config from Config.mysql() or DBDeal.mysql() or .env file.
+        # and instantiation database
+        _choiced_dbconfig, _choiced_dbconfig_flag = self.__choice_dbconfig(dbconfig, tconfig)
+        if not _choiced_dbconfig_flag:
+            raise Exception("dbconfig cat not load from Config() or DBDeal() or .env file")
+        _dbtype = dbconfig.dbtype
+        # mysql实例化
+        if _dbtype == "mysql":
+            return MysqlCli(host=_choiced_dbconfig.host, port=int(_choiced_dbconfig.port), user=_choiced_dbconfig.user,
+                            password=_choiced_dbconfig.password, database=_choiced_dbconfig.database,
+                            **_choiced_dbconfig.kwargs)
+        # mongo实例化
+        if _dbtype == "mongo":
+            user = _choiced_dbconfig.kwargs.pop("user", None)
+            return MongoCli(host=_choiced_dbconfig.host, port=int(_choiced_dbconfig.port),
+                            database=_choiced_dbconfig.database, username=user, **_choiced_dbconfig.kwargs)
+        # redis_signle实例化
+        if _dbtype == "redis_signle":
+            return RedisSignleCli(host=_choiced_dbconfig.host, port=int(_choiced_dbconfig.port),
+                                  database=_choiced_dbconfig.database, **_choiced_dbconfig.kwargs)
+        if _dbtype == "redis_cluster":
+            return RedisClusterCli(host=_choiced_dbconfig.host, port=_choiced_dbconfig.port,
+                                   **_choiced_dbconfig.kwargs)
+        if _dbtype == "redis_sentinel":
+            return RedisSentinelCli(host=_choiced_dbconfig.host, port=_choiced_dbconfig.port,
+                                    database=_choiced_dbconfig.database, **_choiced_dbconfig.kwargs)
+        # elasticsearch实例化
+
+    def __database_exec(self, config: DataBase) -> Dict:
+        # execute DataBase.operate
+        __instancer = config.instance
         __operateresult = {}
         __extracts = config.extract
-        for operate in config.mysql.operate:
-            logger.debug(f"mysql operate:{operate}")
+        for operate in config.operate:
+            logger.debug(f"database operate:{operate}")
             __variables_mapping = merge_variables(config.variables, self.__config.variables)
             # TODO 校验alias
             alias = operate.get("alias", "").strip()
             # TODO 解析content 执行定制的format方式进行sql赋值
-            parase_content = parse_mysql_format(operate.get("content"), __variables_mapping,
-                                                self.__project_meta.functions)
+            parase_content = parse_database_format(operate.get("content"), __variables_mapping,
+                                                   self.__project_meta.functions)
+            logger.info(f"parase_content:{parase_content}")
             handle_result = __instancer.perform(content=parase_content)
+            logger.info(f"handle_result:{handle_result}")
             if alias:
                 __operateresult.update({alias: handle_result})
         extract_mapping = extract(originaltext=__operateresult, extractors=__extracts)
         extract_mapping.update(__operateresult)
         return extract_mapping
 
-    def __db_deal(self, config: DataBase, db_extraced_variable: VariablesMapping) -> VariablesMapping:
-        config.variables = parse_variables_mapping(
-            config.variables, self.__project_meta.functions
+    def __db_deal(self, database: DataBase) -> VariablesMapping:
+        database.variables = parse_variables_mapping(
+            database.variables, self.__project_meta.functions
         )
-        if config.mysql:
-            # TODO 在这执行 mysqlcli的实例化 并写入结构体？
-            config.mysql.instance = self.__mysql_instance(self.__config, config.mysql.mysqlconfig)
-            mysql_extraced_variables = self.__mysql_exec(config=config)
-            if mysql_extraced_variables != {}:
-                db_extraced_variable.update(mysql_extraced_variables)
-        if config.mongo:
-            pass
-        return db_extraced_variable
+        # 在这执行 数据库的实例化 并写入结构体
+        database.instance = self.__db_instance(database.dbconfig, self.__config)
+        _db_extraced_variables = self.__database_exec(config=database)
+        if _db_extraced_variables != {}:
+            return _db_extraced_variables
+        return {}
 
     def run_testcase(self, testcase: TestCase) -> "HttpRunner":
         """run specified testcase
@@ -447,7 +523,7 @@ class HttpRunner(object):
             db_extraced_variables = {}
             logger.info("***** Run DBDeal *****")
             for database in step.databases:
-                db_extraced_variables = self.__db_deal(database, db_extraced_variables)
+                db_extraced_variables = self.__db_deal(database)
                 logger.debug(f"database.extract:{db_extraced_variables}")
                 # save db extract variables to session variables
                 extracted_variables.update(db_extraced_variables)
@@ -479,9 +555,8 @@ class HttpRunner(object):
 
             # todo 下面是数据库校验逻辑
             logger.info("***** Run DBValidate *****")
-            validate_extraced_variables = {}
             for dbvalidator in step.databasevalidators:
-                validate_extraced_variables = self.__db_deal(dbvalidator.database, validate_extraced_variables)
+                validate_extraced_variables = self.__db_deal(dbvalidator.database)
                 logger.debug(f"database.extract:{validate_extraced_variables}")
                 # save db extract variables to session variables
                 extracted_variables.update(validate_extraced_variables)

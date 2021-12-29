@@ -135,7 +135,7 @@ def load_dot_env_file(dot_env_path: Text) -> Dict:
             elif b":" in line:
                 variable, value = line.split(b":", 1)
             else:
-                raise exceptions.FileFormatError(".env format error")
+                raise exceptions.FileFormatError(".env format error, cat not has empty line")
 
             env_variables_mapping[
                 variable.strip().decode("utf-8")

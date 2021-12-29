@@ -19,7 +19,7 @@ variable_regex_compile = re.compile(r"\$\{(\w+)\}|\$(\w+)")
 # function notation, e.g. ${func1($var_1, $var_3)}
 function_regex_compile = re.compile(r"\$\{(\w+)\(([\$\w\.\-/\s=,]*)\)\}")
 # SQL sentence, e.g. (select {},{},{} from blog_tag;).format("name", "state", "created_by")
-mysql_regex_compile = re.compile(r"^\(.*\).format\(.*\)")
+database_regex_compile = re.compile(r"^\(.*\).format\(.*\)")
 
 
 def parse_string_value(str_value: Text) -> Any:
@@ -659,16 +659,16 @@ def split_param(raw_string: Text) -> Any:
     return splited_param_list
 
 
-def parse_mysql_format(content: Text,
+def parse_database_format(content: Text,
                         variables_mapping: VariablesMapping,
                         functions_mapping: FunctionsMapping, ) -> Any:
 
-    mysql_match = mysql_regex_compile.match(content)
-    if mysql_match is None:
+    db_match = database_regex_compile.match(content)
+    if db_match is None:
         return content
-    mysql_match_string_split = mysql_match.string.split(".format")
-    logger.info(f"mysql_match_string_split: {mysql_match_string_split}")
-    raw_string = mysql_match_string_split[1][1:-1]
+    db_match_string_split = db_match.string.split(".format")
+    logger.info(f"db_match_string_split: {db_match_string_split}")
+    raw_string = db_match_string_split[1][1:-1]
 
     parsed_sql_list = []
     splited_sql_list = split_param(raw_string)
@@ -676,6 +676,6 @@ def parse_mysql_format(content: Text,
         parsed_sql = parse_string(sql, variables_mapping, functions_mapping)
         parsed_sql_list.append(parsed_sql)
     logger.info(f"parsed_sql_list:{parsed_sql_list}")
-    parsed_sql_format = mysql_match_string_split[0][1:-1].format(*parsed_sql_list)
+    parsed_sql_format = db_match_string_split[0][1:-1].format(*parsed_sql_list)
     logger.info(f"parsed_sql_format: {parsed_sql_format}")
     return parsed_sql_format
