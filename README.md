@@ -1,8 +1,6 @@
-
-# HttpRunner_Pro
+# **HttpRunner_Pro**
 
 本项目是基于HttpRunner进行了**功能扩展改造**，在原有功能上添加了接口测试时的数据库操作，如：数据库初始化、数据库数据校验等步骤。
-
 
 ### 框架特点
 
@@ -11,10 +9,17 @@
 
 | 数据库        | 是否支持 |
 | ------------- | -------- |
-| mysql         | 已支持     |
-| mongo         | 待支持   |
-| redis         | 待支持   |
+| mysql         | **已支持** |
+| mongo         | **已支持** |
+| redis         | **已支持** |
 | elasticsearch | 待支持   |
+
+## 背景（可跳过）
+
+### 为什么要做/改造httprunner框架？
+
+* 关键字框架降低了自动化的门槛，执行人员可无编程\低编程进行自动化的实现。
+* 多人协同写py自动化时，因每个人的编程能力、规范意识等不同，在有开发规范的前提下，仍会出现各式各样的py自动化脚本，脚本虽可用，但不统一、可维护性差。关键字框架可限制写法，让py脚本具有统一格式、可维护性会有所提高。
 
 ## 使用说明
 
@@ -203,12 +208,16 @@ teststeps:
 
 	eg：
 
-	mysql的配置前缀为：hrun_mysql_
+	> mysql的配置前缀为：hrun_mysql_
 
-	mongo的配置前缀为：hrun_mongo_
+	> mongo的配置前缀为：hrun_mongo_
 
-	redis的配置前缀为：hrun_redis_
+	> redis单机的配置前缀为：hrun_redis_signle_
 
+	> rediscluster集群的配置前缀为：hrun_redis_cluster_
+	
+	> redis哨兵集群的配置前缀为：hrun_redis_sentinel_
+	
 	
 
 **优先级：**
@@ -217,17 +226,17 @@ Step中的数据库操作 DBDeal()和DBValidate()  > Config() > .env
 
 即：
 
-如Step中的DBDeal()和DBValidate()未申明，则使用Config()中的配置，
+​		如Step中的DBDeal()和DBValidate()未申明，则使用Config()中的配置，
 
-如Config()未申明，则使用.env中的配置
+​		如Config()未申明，则使用.env中的配置
 
 **不同数据库依赖库：**
 
-mysql：使用PyMySQL，可参考[PyMySQL_GitHub](https://github.com/PyMySQL/PyMySQL)进行安装与使用
+mysql：使用PyMySQL==1.0.2，可参考[PyMySQL_GitHub](https://github.com/PyMySQL/PyMySQL)进行安装与使用
 
-mongo：
+mongo：使用PyMySQL==1.0.2，可参考[pymongo_GitHub](https://github.com/mongodb/mongo-python-driver)进行安装与使用
 
-redis
+redis：使用redis-py-cluster==2.1.3，可参考[redis-py-cluster_GitHub](https://github.com/Grokzen/redis-py-cluster)进行安装与使用
 
 ElasticSearch：
 
@@ -262,13 +271,74 @@ Config("demo")
           "database": "blog", "connect_timeout": "$connect_timeout"})
 ```
 
+
+
 #### mongo(optional)
 
- 待补充
+对mongo进行配置，包含mongo的host、port、password、database等。具体mongo的参数可见pymongo
 
-#### redis(optional)
+的配置参数
 
- 待补充
+eg：
+
+```python
+.mongo(**{"host": "172.31.114.54", "port": 37017, "user": "", "password": "",
+          "database": "caccount_test"}) 
+```
+
+
+
+#### redis_signle(optional)
+
+ 对redis单点进行配置，包含redis的host、port、password、database等。具体redis的参数可见StrictRedis的配置参数
+
+```python
+.redis_signle(**{"host": "172.31.114.54", "port": 6379, "database": 0})
+```
+
+
+
+#### redis_cluster(optional)
+
+ 对redis cluster集群进行配置，包含cluster集群的host、port、password等。具体cluster的参数可见RedisCluster的配置参数。
+
+两种配置方式：
+
+* 集群中的某个点的host+port，即可连接cluster集群
+
+```python
+.redis_cluster(**{"host": "172.31.114.19", "port": 8101})
+```
+
+* 集群中的完整node节点
+
+```python
+.redis_cluster(**{"startup_nodes": [{"host": "172.31.114.19", "port": 8101}, {"host": "172.31.114.19", "port": 7101},{"host": "172.31.114.19", "port": 6101}]})
+```
+
+
+
+#### redis_sentinel(optional)
+
+ 对redis 哨兵集群进行配置，包含哨兵集群的host、port、password、database、servicename等。具体哨兵的参数可见Sentinel的配置参数。
+
+两种配置方式：
+
+* 集群中单个节点
+
+```python
+.redis_sentinel(**{"host": "172.31.114.82", "port": 16401, "servicename": "mymaster", "database": 0})
+```
+
+* 集群中完整哨兵节点
+
+```python
+.redis_sentinel(**{"sentinels": [('172.31.114.82', 16401), ('172.31.114.82', 16402), ('172.31.114.82', 16403)],"servicename": "mymaster", "database": 0})
+```
+
+
+
+
 
 #### elasticsearch(optional)
 
@@ -277,6 +347,18 @@ Config("demo")
 ### 3.3 DBDeal
 
 数据库配置中，因使用的数据库种类不同，故定义的关键字会有所不同。
+
+eg:
+
+```python
+DBDeal().mysql()
+DBDeal().mongo()
+DBDeal().redis_signle()
+DBDeal().redis_cluster()
+DBDeal().redis_sentinel()
+```
+
+
 
 #### mysql 数据处理
 
@@ -316,11 +398,11 @@ content中sql语句想通过上下文参数传递，需要使用如下写法
 
 使用 jmespath 提取 JSON 响应正文。
 
-with_jmespath（jmes_path：Text，var_name：Text）
+* with_jmespath（jmes_path：Text，var_name：Text）
 
-jmes_path：jmespath 表达式，更多细节参考 JMESPath 教程
+* jmes_path：jmespath 表达式，更多细节参考 JMESPath 教程
 
-var_name：存储提取值的变量名，可供后续测试步骤引用
+* var_name：存储提取值的变量名，可供后续测试步骤引用
 
 ```python
 .extract()
@@ -329,17 +411,97 @@ var_name：存储提取值的变量名，可供后续测试步骤引用
 
 **注意：** 通过jmespath 提取的var_name可供后续的RunRequest和DBValidate进行上下文参数使用
 
+
+
 #### mongo 数据处理
 
-待补充
+##### mongo(optional)
 
-#### redis 数据处理
+参数与Config.mongo()中参数一致。在此配置仅影响当前DBDeal的数据执行
 
-待补充
+**其他参数同上**
+
+eg：
+
+```python
+DBDeal()
+    .mongo()
+    .exec('''db.getCollection('tb_user_account').insert({"name" : "bob"})'''),
+```
+
+**特殊说明：**
+
+##### exec(content, alias)
+
+执行mongo shell语句，支持对执行语句的结果赋值到变量中，供上下文使用
+
+对mongo shell写法支持如下两种写法：
+
+> db.getCollection('tb_user_account').insert()
+>
+> db.tb_user_account.insert()
+
+
+
+#### redis_signle 数据处理
+
+##### redis_signle(optional)
+
+参数与Config.redis_signle()中参数一致。在此配置仅影响当前DBDeal的数据执行
+
+**其他参数同上**
+
+eg：
+
+```python
+DBDeal()
+    .redis_signle()
+    .exec("SET username bob")
+```
+
+
+
+#### redis_cluster 数据处理
+
+##### redis_cluster (optional)
+
+参数与Config.redis_cluster ()中参数一致。在此配置仅影响当前DBDeal的数据执行
+
+**其他参数同上**
+
+eg：
+
+```python
+DBDeal()
+    .redis_cluster()
+    .exec("SET username maaaaa")
+```
+
+
+
+#### redis_sentinel 数据处理
+
+redis_sentinel (optional)
+
+参数与Config.redis_sentinel ()中参数一致。在此配置仅影响当前DBDeal的数据执行
+
+**其他参数同上**
+
+eg：
+
+```python
+DBDeal()
+    .redis_sentinel()
+    .exec("set username maaaaa")
+```
+
+
 
 #### elasticsearch 数据处理
 
 待补充
+
+
 
 ### 3.4 DBValidate
 
@@ -374,6 +536,68 @@ assert_XXX(jmes_path: Text, expected_value: Any, message: Text = "")
 * 描述（可选）：用于指示断言错误原因
 
 该逻辑与httprunner中RunRequest().validate()逻辑保持一致
+
+
+
+##### mongo(optional)
+
+**写法同上**
+
+eg：
+
+```python
+DBValidate()
+    .mongo()
+    .exec('''db.getCollection('tb_user_account').find().limit(1)''', "user_account")
+    .extract()
+    .with_jmespath("user_account.list1[0].name", "name")
+    .validate()
+    .assert_equal("name", "bob")
+```
+
+##### redis_signle(optional)
+
+**写法同上**
+
+eg：
+
+```python
+DBValidate()
+    .redis_signle()
+    .exec("get name", "name")
+    .validate()
+    .assert_equal("name.list1", "maaaaa"),
+```
+
+##### redis_cluster(optional)
+
+**写法同上**
+
+eg：
+
+```python
+DBValidate()
+    .redis_cluster()
+    .exec("get name", "name")
+    .validate()
+    .assert_equal("name.list1", "maaaaa"),
+```
+
+##### redis_sentinel(optional)
+
+**写法同上**
+
+eg：
+
+```python
+DBValidate()
+    .redis_sentinel()
+    .exec("get name", "name")
+    .validate()
+    .assert_equal("name.list1", "maaaaa"),
+```
+
+
 
 
 

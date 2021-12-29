@@ -445,8 +445,9 @@ class HttpRunner(object):
                             **_choiced_dbconfig.kwargs)
         # mongo实例化
         if _dbtype == "mongo":
+            user = _choiced_dbconfig.kwargs.pop("user", None)
             return MongoCli(host=_choiced_dbconfig.host, port=int(_choiced_dbconfig.port),
-                            database=_choiced_dbconfig.database, **_choiced_dbconfig.kwargs)
+                            database=_choiced_dbconfig.database, username=user, **_choiced_dbconfig.kwargs)
         # redis_signle实例化
         if _dbtype == "redis_signle":
             return RedisSignleCli(host=_choiced_dbconfig.host, port=int(_choiced_dbconfig.port),
