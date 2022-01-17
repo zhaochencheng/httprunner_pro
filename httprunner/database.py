@@ -73,6 +73,7 @@ class MysqlCli(object):
 
 class RedisCli(object):
 
+
     def __exec(self, content: Text):
         # content: SET name bob
         # 通过空格分隔出 操作 和 内容
@@ -120,7 +121,12 @@ class RedisSentinelCli(RedisCli):
         # slave = sentinel.slave_for(service_name=servicename, db=db)
         self.redis = master
 
-# if __name__ == '__main__':
+
+if __name__ == '__main__':
+    # mongo = MongoCli(host="172.31.114.54", port=37017, database="caccount_test")
+    # mongo.perform("db.getCollection('tb_user_account').insert({'name' : 'bob'})")
+    rediscli = RedisSignleCli(host="172.31.114.54", port=6379, database=0)
+    rediscli.perform("""HSET name redis_signle bob""")
 #     sentinel = RedisSentinelCli(host='172.31.114.82', port='16401', user=None, password=None, database='0', servicename= 'mymaster')
 #     # sentinel.perform("set name NNNN")
 #     result = sentinel.perform("get name")

@@ -65,7 +65,7 @@
 py写法：
 
 ```python
-from httprunner import HttpRunner, Config, Step, RunRequest, RunTestCase
+from httprunner import HttpRunner, Config, Step, RunRequest, RunTestCase, DBDeal, DBValidate
 
 
 class TestCaseRequestWithFunctions(HttpRunner):

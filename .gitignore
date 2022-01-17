@@ -17,3 +17,4 @@ reports
 *.xml
 htmlcov/
 demo
+env/

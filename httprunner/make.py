@@ -211,7 +211,18 @@ def make_config_chain_style(config: Dict) -> Text:
     # add mysql config
     if "mysql" in config:
         config_chain_style += f'.mysql(**{config["mysql"]})'
+    # add mongo config
+    if "mongo" in config:
+        config_chain_style += f'.mongo(**{config["mongo"]})'
+    # add redis config
+    if "redis_signle" in config:
+        config_chain_style += f'.redis_signle(**{config["redis_signle"]})'
 
+    if "redis_cluster" in config:
+        config_chain_style += f'.redis_cluster(**{config["redis_cluster"]})'
+
+    if "redis_sentinel" in config:
+        config_chain_style += f'.redis_sentinel(**{config["redis_sentinel"]})'
     return config_chain_style
 
 
@@ -263,19 +274,19 @@ def make_request_chain_style(request: Dict) -> Text:
     return request_chain_style
 
 
-def make_dbdeal_mysql_chain_style(mapping: Dict) -> Text:
-    mysql_info = ""
+def make_dbdeal_database_chain_style(mapping: Dict, databasename: Text) -> Text:
+    database_info = ""
     if "conf" in mapping:
         conf = mapping.get("conf")
         if conf == {}:
-            mysql_info += "mysql()"
+            database_info += f"{databasename}()"
         else:
-            mysql_info += f"mysql(**{conf})"
+            database_info += f"{databasename}(**{conf})"
     else:
-        mysql_info += "mysql()"
+        database_info += f"{databasename}()"
     if "variables" in mapping:
         variables = mapping.get("variables")
-        mysql_info += f".with_variables(**{variables})"
+        database_info += f".with_variables(**{variables})"
 
     if "exec" in mapping:
         exec = mapping.get("exec")
@@ -285,14 +296,14 @@ def make_dbdeal_mysql_chain_style(mapping: Dict) -> Text:
             sql = exec.get("sql")
         if "alias" in exec:
             alias = exec.get("alias")
-        logger.info(f"sql:::{sql}")
-        mysql_info += f'''.exec("""{sql}""", '{alias}')'''
+        logger.info(f"sql:{sql}")
+        database_info += f'''.exec("""{sql}""", '{alias}')'''
     if "extract" in mapping:
-        mysql_info += ".extract()"
+        database_info += ".extract()"
         for extract_name, extract_path in mapping.get("extract").items():
-            mysql_info += f""".with_jmespath('{extract_path}', '{extract_name}')"""
+            database_info += f""".with_jmespath('{extract_path}', '{extract_name}')"""
 
-    return mysql_info
+    return database_info
 
 
 def make_dbdeal_chain_style(dbdeal_list: List) -> Text:
@@ -301,19 +312,43 @@ def make_dbdeal_chain_style(dbdeal_list: List) -> Text:
         dbdeal_info = "DBDeal()."
         mysql_info = dbdeal.get("mysql", None)
         if mysql_info:
-            mysql_info_str = make_dbdeal_mysql_chain_style(mysql_info)
+            mysql_info_str = make_dbdeal_database_chain_style(mysql_info, "mysql")
             dbdeal_info += mysql_info_str
+            info += dbdeal_info + ","
+
+        mongo_info = dbdeal.get("mongo", None)
+        if mongo_info:
+            mongo_info_str = make_dbdeal_database_chain_style(mongo_info, "mongo")
+            dbdeal_info += mongo_info_str
+            info += dbdeal_info + ","
+
+        redis_signle_info = dbdeal.get("redis_signle", None)
+        if redis_signle_info:
+            redis_signle_info_str = make_dbdeal_database_chain_style(redis_signle_info, "redis_signle")
+            dbdeal_info += redis_signle_info_str
+            info += dbdeal_info + ","
+
+        redis_cluster_info = dbdeal.get("redis_cluster", None)
+        if redis_cluster_info:
+            redis_cluster_str = make_dbdeal_database_chain_style(redis_cluster_info, "redis_cluster")
+            dbdeal_info += redis_cluster_str
+            info += dbdeal_info + ","
+
+        redis_sentinel_info = dbdeal.get("redis_sentinel", None)
+        if redis_sentinel_info:
+            redis_sentinel_info_str = make_dbdeal_database_chain_style(redis_sentinel_info, "redis_sentinel")
+            dbdeal_info += redis_sentinel_info_str
             info += dbdeal_info + ","
 
     return info
 
 
-def make_dbValidate_mysql_chain_style(mapping: Dict) -> Text:
-    mysql_validate_info = ""
-    mysql_deal = make_dbdeal_mysql_chain_style(mapping)
-    mysql_validate_info += mysql_deal
+def make_dbValidate_database_chain_style(mapping: Dict, databasename:Text) -> Text:
+    database_validate_info = ""
+    database_deal = make_dbdeal_database_chain_style(mapping, databasename)
+    database_validate_info += database_deal
     if "validate" in mapping:
-        mysql_validate_info += ".validate()"
+        database_validate_info += ".validate()"
         for v in mapping["validate"]:
             validator = uniform_validator(v)
             assert_method = validator["assert"]
@@ -329,10 +364,10 @@ def make_dbValidate_mysql_chain_style(mapping: Dict) -> Text:
 
             message = validator["message"]
             if message:
-                mysql_validate_info += f".assert_{assert_method}({check}, {expect}, '{message}')"
+                database_validate_info += f".assert_{assert_method}({check}, {expect}, '{message}')"
             else:
-                mysql_validate_info += f".assert_{assert_method}({check}, {expect})"
-    return mysql_validate_info
+                database_validate_info += f".assert_{assert_method}({check}, {expect})"
+    return database_validate_info
 
 
 def make_dbValidate_chain_style(dbvalidate_list: List) -> Text:
@@ -341,8 +376,32 @@ def make_dbValidate_chain_style(dbvalidate_list: List) -> Text:
         dbvalidate_info = "DBValidate()."
         mysql_info = dbvalidate.get("mysql", None)
         if mysql_info:
-            mysql_info_str = make_dbValidate_mysql_chain_style(mysql_info)
+            mysql_info_str = make_dbValidate_database_chain_style(mysql_info, "mysql")
             dbvalidate_info += mysql_info_str
+            info += dbvalidate_info + ","
+
+        mongo_info = dbvalidate.get("mongo", None)
+        if mongo_info:
+            mongo_info_str = make_dbdeal_database_chain_style(mongo_info, "mongo")
+            dbvalidate_info += mongo_info_str
+            info += dbvalidate_info + ","
+
+        redis_signle_info = dbvalidate.get("redis_signle", None)
+        if redis_signle_info:
+            redis_signle_info_str = make_dbdeal_database_chain_style(redis_signle_info, "redis_signle")
+            dbvalidate_info += redis_signle_info_str
+            info += dbvalidate_info + ","
+
+        redis_cluster_info = dbvalidate.get("redis_cluster", None)
+        if redis_cluster_info:
+            redis_cluster_str = make_dbdeal_database_chain_style(redis_cluster_info, "redis_cluster")
+            dbvalidate_info += redis_cluster_str
+            info += dbvalidate_info + ","
+
+        redis_sentinel_info = dbvalidate.get("redis_sentinel", None)
+        if redis_sentinel_info:
+            redis_sentinel_info_str = make_dbdeal_database_chain_style(mysql_info, "redis_sentinel")
+            dbvalidate_info += redis_sentinel_info_str
             info += dbvalidate_info + ","
 
     return info
@@ -732,4 +791,4 @@ if __name__ == '__main__':
     # __make(r"F:\httprunner\demo\basic.yml")
     # __make(r"F:\httprunner\demo\hooks.yml")
     # main_make([r"F:\httprunner\demo\hooks.yml", ])
-    main_make([r"F:\httprunner\demo\basic2.yml",])
+    main_make([r"F:\httprunner\demo\basic2.yml", ])
