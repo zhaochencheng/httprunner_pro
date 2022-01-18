@@ -52,6 +52,12 @@
 
 ## 2·安装
 
+**说明：如已安装httprunner，请先卸载**
+
+> pip uninstall httprunner
+
+
+
 * 方法一：whl包安装
 
 	> 下载release中的httprunner-3.1.6.tar.gz
