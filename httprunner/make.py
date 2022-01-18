@@ -785,10 +785,3 @@ def init_make_parser(subparsers):
     )
 
     return parser
-
-
-if __name__ == '__main__':
-    # __make(r"F:\httprunner\demo\basic.yml")
-    # __make(r"F:\httprunner\demo\hooks.yml")
-    # main_make([r"F:\httprunner\demo\hooks.yml", ])
-    main_make([r"F:\httprunner\demo\basic2.yml", ])

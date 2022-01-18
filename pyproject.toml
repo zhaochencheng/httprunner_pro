@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "httprunner"
 version = "3.1.6"
-description = "One-stop solution for HTTP(S) testing."
+description = "Based on Httprunner transformation framework, the database operation is extended."
 license = "Apache-2.0"
 readme = "README.md"
-authors = ["debugtalk <debugtalk@gmail.com>"]
+authors = ["debugtalk <debugtalk@gmail.com>", "zhaochencheng <907779487@qq.com>"]
 
-homepage = "https://github.com/httprunner/httprunner"
-repository = "https://github.com/httprunner/httprunner"
+homepage = "https://github.com/zhaochencheng/httprunner_pro"
+repository = "https://github.com/zhaochencheng/httprunner_pro"
 documentation = "https://docs.httprunner.org"
 
 keywords = ["HTTP", "api", "test", "requests", "locustio"]
@@ -44,6 +44,9 @@ requests-toolbelt = {version = "^0.9.1", optional = true}
 filetype = {version = "^1.0.7", optional = true}
 locust = {version = "^1.0.3", optional = true}
 Brotli = "^1.0.9"
+pymongo = "^3.11.0"
+PyMySQL = "^1.0.2"
+redis-py-cluster = "^2.1.3"
 
 [tool.poetry.extras]
 allure = ["allure-pytest"]                  # pip install "httprunner[allure]", poetry install -E allure

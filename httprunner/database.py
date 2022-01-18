@@ -120,33 +120,3 @@ class RedisSentinelCli(RedisCli):
         master = sentinel.master_for(service_name=servicename, db=int(database), decode_responses=True, **kwargs)
         # slave = sentinel.slave_for(service_name=servicename, db=db)
         self.redis = master
-
-
-if __name__ == '__main__':
-    # mongo = MongoCli(host="172.31.114.54", port=37017, database="caccount_test")
-    # mongo.perform("db.getCollection('tb_user_account').insert({'name' : 'bob'})")
-    rediscli = RedisSignleCli(host="172.31.114.54", port=6379, database=0)
-    rediscli.perform("""HSET name redis_signle bob""")
-#     sentinel = RedisSentinelCli(host='172.31.114.82', port='16401', user=None, password=None, database='0', servicename= 'mymaster')
-#     # sentinel.perform("set name NNNN")
-#     result = sentinel.perform("get name")
-#     print(result)
-#     # mongocli = MongoCli(host="172.31.114.54", port=37017, database="caccount_test")
-#     # db = mongocli.database()
-#     # print(db)
-#     # print(dir(db))
-#     # tb_user_account = db["tb_user_account"]
-#     # print(tb_user_account)
-#     # print(tb_user_account.find({}).sort([("CreateTime", 1),]))
-#     # print(tb_user_account.find_one({}))
-#     # result = eval('tb_user_account.find({})')
-#     # tb_user_account.find().sort()
-#     # result = tb_user_account.find_one({})
-#     # result = tb_user_account.insert({"name": "bob"})
-#     # print(result)
-#     # print([i for i in result])
-#     # if isinstance(result, Cursor):
-#     #     print([i for i in result])
-#     # result = eval('tb_user_account.find({}).sort([("CreateTime", 1),])')
-#     # print([i for i in result])
-#     # print(tb_user_account.find())

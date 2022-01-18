@@ -52,11 +52,23 @@
 
 ## 2·安装
 
-使用pip install httprunner_pro
+* 方法一：whl包安装
 
-待上传至pip仓库
+	> 下载release中的httprunner-3.1.6.tar.gz
+	>
+	> 在测试项目下执行pip install httprunner-3.1.6.tar.gz 进行httprunner的安装
+	
+* 方法二：源码构建+whl包安装
 
-
+	> 使用poetry进行包管理
+	>
+	> 安装：执行pip install poetry 
+	>
+	> 构建：poetry build
+	>
+	> 构建后在dist目录下httprunner-3.1.6-py3-none-any.whl
+	>
+	> 在测试项目下执行pip install httprunner-3.1.6-py3-none-any.whl 进行httprunner的安装
 
 ## 3·关键字说明
 
